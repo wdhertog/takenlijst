@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.data.TaskGroup
 
+@OptIn(ExperimentalTextApi::class)
 private fun figtree(weight: Int) = Font(
     R.font.figtree,
     weight = FontWeight(weight),
