@@ -1,5 +1,7 @@
 package nl.wdhertog.takenlijst.ui
 
+import nl.wdhertog.takenlijst.ui.theme.groupFg
+import nl.wdhertog.takenlijst.ui.theme.groupBg
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,13 +47,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.ui.theme.App
 
-/** Icoon kiezen voor een taak, met zoeken en indeling per categorie. Geeft "" terug voor "automatisch". */
+/**
+ * Icoon kiezen, met zoeken en indeling per categorie, voor een taak of een groep. Bij een taak
+ * ([allowAuto]) is er ook "automatisch", dat "" teruggeeft. [color] is de paletkleur van de groep.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IconPickerScreen(current: String, title: String, group: TaskGroup, onPick: (String) -> Unit, onBack: () -> Unit) {
+fun IconPickerScreen(current: String, title: String, color: Int, allowAuto: Boolean, fallbackIcon: Int, onPick: (String) -> Unit, onBack: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = TaskIcon.search(query)
     val auto = TaskIcon.guess(title)
@@ -89,14 +93,16 @@ fun IconPickerScreen(current: String, title: String, group: TaskGroup, onPick: (
                 modifier = Modifier.weight(1f),
             ) {
                 if (query.isBlank()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("Automatisch") }
-                    item {
-                        IconTile(auto?.drawable ?: group.icon(), if (auto != null) "Auto: ${auto.label}" else "Auto", current.isEmpty(), group) { onPick("") }
+                    if (allowAuto) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("Automatisch") }
+                        item {
+                            IconTile(auto?.drawable ?: fallbackIcon, if (auto != null) "Auto: ${auto.label}" else "Auto", current.isEmpty(), color) { onPick("") }
+                        }
                     }
                     TaskIcon.CATEGORIES.forEach { category ->
                         item(span = { GridItemSpan(maxLineSpan) }, key = "h$category") { SectionHeader(category) }
                         items(TaskIcon.ALL.filter { it.category == category }, key = { it.key }) { icon ->
-                            IconTile(icon.drawable, icon.label, icon.key == current, group) { onPick(icon.key) }
+                            IconTile(icon.drawable, icon.label, icon.key == current, color) { onPick(icon.key) }
                         }
                     }
                 } else if (results.isEmpty()) {
@@ -110,7 +116,7 @@ fun IconPickerScreen(current: String, title: String, group: TaskGroup, onPick: (
                 } else {
                     item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("${results.size} gevonden") }
                     items(results, key = { it.key }) { icon ->
-                        IconTile(icon.drawable, icon.label, icon.key == current, group) { onPick(icon.key) }
+                        IconTile(icon.drawable, icon.label, icon.key == current, color) { onPick(icon.key) }
                     }
                 }
             }
@@ -119,13 +125,13 @@ fun IconPickerScreen(current: String, title: String, group: TaskGroup, onPick: (
 }
 
 @Composable
-private fun IconTile(drawable: Int, label: String, selected: Boolean, group: TaskGroup, onClick: () -> Unit) {
-    val fg = App.colors.groupFg.getValue(group)
+private fun IconTile(drawable: Int, label: String, selected: Boolean, color: Int, onClick: () -> Unit) {
+    val fg = groupFg(color)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Surface(
             onClick = onClick,
             shape = RoundedCornerShape(16.dp),
-            color = if (selected) App.colors.groupBg.getValue(group) else App.colors.card,
+            color = if (selected) groupBg(color) else App.colors.card,
             border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) fg else MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.size(56.dp).semantics { this.selected = selected; contentDescription = label },
         ) {

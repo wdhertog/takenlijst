@@ -1,5 +1,10 @@
 package nl.wdhertog.takenlijst.ui
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import nl.wdhertog.takenlijst.ui.theme.fg
+import nl.wdhertog.takenlijst.ui.theme.bg
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,10 +63,13 @@ private fun Task.bucket() = when (repeatUnit) {
 fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val day by vm.currentDate.collectAsState()
-    var group by rememberSaveable { mutableStateOf(TaskGroup.HOME) }
+    val groups = LocalGroups.current
+    var groupId by rememberSaveable { mutableStateOf(groups.firstOrNull()?.id ?: TaskGroup.HOME) }
+    // Groep weggehaald terwijl hij gekozen was: terug naar de eerste.
+    val group = groups.firstOrNull { it.id == groupId } ?: groups.firstOrNull() ?: TaskGroup.FALLBACK
     val all = tasks.orEmpty()
-    val counts = all.groupingBy { it.group }.eachCount()
-    val buckets = all.filter { it.group == group }
+    val counts = all.groupingBy { it.groupId }.eachCount()
+    val buckets = all.filter { it.groupId == group.id }
         .groupBy { it.bucket() }
         .toSortedMap()
         .mapValues { (_, list) -> list.sortedWith(compareBy(nullsLast()) { it.nextDue }) }
@@ -76,33 +84,36 @@ fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) 
     ) {
         item { Text("Taken", style = MaterialTheme.typography.headlineLarge) }
         item {
+            val tabScroll = rememberScrollState()
             Row(
                 Modifier
                     .padding(top = 16.dp)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    // Bij meer dan drie groepen scrollen de tabbladen; anders verdelen ze de breedte.
+                    .then(if (groups.size > 3) Modifier.horizontalScroll(tabScroll) else Modifier)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                TaskGroup.entries.forEach { g ->
-                    val selected = g == group
+                groups.forEach { g ->
+                    val selected = g.id == group.id
                     Row(
                         Modifier
-                            .weight(1f)
+                            .then(if (groups.size <= 3) Modifier.weight(1f) else Modifier.widthIn(min = 96.dp))
                             .height(44.dp)
                             .then(if (selected) Modifier.shadow(1.dp, RoundedCornerShape(12.dp)) else Modifier)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (selected) App.colors.card else MaterialTheme.colorScheme.surfaceContainerHighest)
-                            .clickable { group = g }
+                            .clickable { groupId = g.id }
                             .semantics { role = Role.Tab; this.selected = selected },
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val fg = if (selected) App.colors.groupFg.getValue(g) else MaterialTheme.colorScheme.onSurface
-                        DrawableIcon(g.icon(), Modifier.size(18.dp), tint = fg)
+                        val fg = if (selected) g.fg else MaterialTheme.colorScheme.onSurface
+                        DrawableIcon(g.icon(), Modifier.padding(start = 10.dp).size(18.dp), tint = fg)
                         Text(" ${g.label} ", style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold)
-                        Text("${counts[g] ?: 0}", style = MaterialTheme.typography.labelLarge, color = App.colors.muted)
+                        Text("${counts[g.id] ?: 0}", style = MaterialTheme.typography.labelLarge, color = App.colors.muted, modifier = Modifier.padding(end = 10.dp))
                     }
                 }
             }
@@ -124,7 +135,7 @@ fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) 
                 Column(Modifier.clip(RoundedCornerShape(18.dp)).background(App.colors.card)) {
                     list.forEachIndexed { i, t ->
                         if (i > 0) HorizontalDivider(color = App.colors.line)
-                        TaskListItem(t, day, onClick = { onEdit(t.id) }, onSchedule = { vm.schedule(t.id) })
+                        TaskListItem(t, group, day, onClick = { onEdit(t.id) }, onSchedule = { vm.schedule(t.id) })
                     }
                 }
             }
@@ -133,7 +144,7 @@ fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) 
 }
 
 @Composable
-private fun TaskListItem(t: Task, day: java.time.LocalDate, onClick: () -> Unit, onSchedule: () -> Unit) {
+private fun TaskListItem(t: Task, group: TaskGroup, day: java.time.LocalDate, onClick: () -> Unit, onSchedule: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -143,9 +154,9 @@ private fun TaskListItem(t: Task, day: java.time.LocalDate, onClick: () -> Unit,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(App.colors.groupBg.getValue(t.group)),
+            Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(group.bg),
             contentAlignment = Alignment.Center,
-        ) { DrawableIcon(t.iconRes(), Modifier.size(20.dp), tint = App.colors.groupFg.getValue(t.group)) }
+        ) { DrawableIcon(t.iconRes(group), Modifier.size(20.dp), tint = group.fg) }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val detail = buildString {

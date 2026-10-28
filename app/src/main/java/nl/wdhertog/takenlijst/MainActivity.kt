@@ -21,6 +21,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -35,10 +36,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.ui.AppViewModel
 import nl.wdhertog.takenlijst.ui.DrawableIcon
+import nl.wdhertog.takenlijst.ui.GroupEditScreen
+import nl.wdhertog.takenlijst.ui.GroupsScreen
 import nl.wdhertog.takenlijst.ui.IconPickerScreen
+import nl.wdhertog.takenlijst.ui.LocalGroups
+import nl.wdhertog.takenlijst.ui.TaskIcon
 import nl.wdhertog.takenlijst.ui.MoreScreen
 import nl.wdhertog.takenlijst.ui.ScanScreen
 import nl.wdhertog.takenlijst.ui.ShoppingScreen
@@ -77,6 +81,11 @@ private fun AppRoot(vm: AppViewModel) {
     val tab = Tab.entries.firstOrNull { it.route == route }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshDate() }
+    val groups by vm.groups.collectAsState()
+
+    fun pickIcon(current: String, title: String, color: Int, allowAuto: Boolean, fallback: String) = nav.navigate(
+        "icoon?huidig=${Uri.encode(current)}&naam=${Uri.encode(title)}&kleur=$color&auto=$allowAuto&terugval=${Uri.encode(fallback)}"
+    )
 
     fun go(t: Tab) = nav.navigate(t.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -84,6 +93,7 @@ private fun AppRoot(vm: AppViewModel) {
         restoreState = true
     }
 
+    CompositionLocalProvider(LocalGroups provides groups) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -117,31 +127,47 @@ private fun AppRoot(vm: AppViewModel) {
             }
             composable(Tab.TASKS.route) { TasksScreen(vm, padding, onEdit = { nav.navigate("bewerk/$it") }) }
             composable(Tab.SHOPPING.route) { ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") }) }
-            composable(Tab.MORE.route) { MoreScreen(vm, padding) }
+            composable(Tab.MORE.route) { MoreScreen(vm, padding, onGroups = { nav.navigate("groepen") }) }
+            composable("groepen") {
+                GroupsScreen(vm, onEdit = { id -> nav.navigate("groep/${id ?: "nieuw"}") }, onBack = { nav.popBackStack() })
+            }
+            composable("groep/{id}") { entry ->
+                val picked by entry.savedStateHandle.getStateFlow<String?>(PICKED_ICON, null).collectAsState()
+                GroupEditScreen(
+                    vm, entry.arguments?.getString("id")?.takeIf { it != "nieuw" },
+                    onPickIcon = { current, color -> pickIcon(current, "", color, allowAuto = false, fallback = current) },
+                    pickedIcon = picked,
+                    onPickedIconHandled = { entry.savedStateHandle[PICKED_ICON] = null },
+                    onDone = { nav.popBackStack() },
+                )
+            }
             composable("bewerk/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
                 val picked by entry.savedStateHandle.getStateFlow<String?>(PICKED_ICON, null).collectAsState()
                 TaskEditScreen(
                     vm, entry.arguments?.getLong("id") ?: 0L,
                     onDone = { nav.popBackStack() },
-                    onPickIcon = { current, title, group ->
-                        nav.navigate("icoon/${group.name}?huidig=${Uri.encode(current)}&naam=${Uri.encode(title)}")
-                    },
+                    onPickIcon = { current, title, group -> pickIcon(current, title, group.color, allowAuto = true, fallback = group.icon) },
                     pickedIcon = picked,
                     onPickedIconHandled = { entry.savedStateHandle[PICKED_ICON] = null },
                 )
             }
             composable(
-                "icoon/{groep}?huidig={huidig}&naam={naam}",
+                "icoon?huidig={huidig}&naam={naam}&kleur={kleur}&auto={auto}&terugval={terugval}",
                 arguments = listOf(
                     navArgument("huidig") { defaultValue = "" },
                     navArgument("naam") { defaultValue = "" },
+                    navArgument("kleur") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("auto") { type = NavType.BoolType; defaultValue = true },
+                    navArgument("terugval") { defaultValue = "" },
                 ),
             ) { entry ->
                 val args = entry.arguments
                 IconPickerScreen(
                     current = args?.getString("huidig").orEmpty(),
                     title = args?.getString("naam").orEmpty(),
-                    group = TaskGroup.valueOf(args?.getString("groep") ?: TaskGroup.HOME.name),
+                    color = args?.getInt("kleur") ?: 0,
+                    allowAuto = args?.getBoolean("auto") ?: true,
+                    fallbackIcon = TaskIcon.byKey(args?.getString("terugval").orEmpty())?.drawable ?: R.drawable.ic_home,
                     onPick = { key ->
                         nav.previousBackStackEntry?.savedStateHandle?.set(PICKED_ICON, key)
                         nav.popBackStack()
@@ -153,5 +179,6 @@ private fun AppRoot(vm: AppViewModel) {
                 ScanScreen(vm, voice = it.arguments?.getString("soort") == "spraak", onDone = { nav.popBackStack() })
             }
         }
+    }
     }
 }

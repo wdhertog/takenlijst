@@ -1,5 +1,7 @@
 package nl.wdhertog.takenlijst.ui
 
+import nl.wdhertog.takenlijst.ui.theme.fg
+import nl.wdhertog.takenlijst.ui.theme.bg
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -62,6 +64,7 @@ fun TodayScreen(
     val day by vm.currentDate.collectAsState()
     val filter by vm.groupFilter.collectAsState()
     val openShopping by vm.openShopping.collectAsState()
+    val groups = LocalGroups.current
     val scope = rememberCoroutineScope()
 
     fun complete(task: Task) = scope.launch {
@@ -97,11 +100,11 @@ fun TodayScreen(
                 item {
                     FilterChip(selected = filter == null, onClick = { vm.groupFilter.value = null }, label = { Text("Alles") }, colors = chipColors())
                 }
-                items(TaskGroup.entries) { g ->
+                items(groups, key = { it.id }) { g ->
                     FilterChip(
-                        selected = filter == g,
-                        onClick = { vm.groupFilter.value = if (filter == g) null else g },
-                        label = { Text(g.label, color = if (filter == g) MaterialTheme.colorScheme.surface else App.colors.groupFg.getValue(g)) },
+                        selected = filter == g.id,
+                        onClick = { vm.groupFilter.value = if (filter == g.id) null else g.id },
+                        label = { Text(g.label, color = if (filter == g.id) MaterialTheme.colorScheme.surface else g.fg) },
                         colors = chipColors(),
                     )
                 }
@@ -112,7 +115,7 @@ fun TodayScreen(
             item { SectionHeader("Te laat", color = App.colors.lateFg) }
             items(state.late, key = { "late${it.id}" }) { t ->
                 TaskRow(
-                    t.title, t.group, t.describeRepeat(), checked = false,
+                    t.title, groupOf(t.groupId), t.describeRepeat(), checked = false,
                     onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                     late = lateLabel(t.nextDue!!, day),
                     modifier = Modifier.animateItem(),
@@ -132,14 +135,14 @@ fun TodayScreen(
         }
         items(state.done, key = { "done${it.completionId}" }) { d ->
             TaskRow(
-                d.title, d.group, d.repeat.describe(), checked = true,
+                d.title, groupOf(d.groupId), d.repeat.describe(), checked = true,
                 onCheck = { vm.undo(d.completionId) }, onClick = { onEdit(d.taskId) },
                 modifier = Modifier.animateItem(),
             )
         }
         items(state.due, key = { "due${it.id}" }) { t ->
             TaskRow(
-                t.title, t.group, detail(t), checked = false,
+                t.title, groupOf(t.groupId), detail(t), checked = false,
                 onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                 modifier = Modifier.animateItem(),
                 progress = if (t.timesPerDay > 1) t.slotsDone / t.timesPerDay.toFloat() else 0f,
@@ -151,7 +154,7 @@ fun TodayScreen(
             item { SectionHeader("Binnenkort") }
             items(state.upcoming, key = { "next${it.id}" }) { t ->
                 TaskRow(
-                    t.title, t.group, "${t.describeRepeat()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
+                    t.title, groupOf(t.groupId), "${t.describeRepeat()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
                     onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                     modifier = Modifier.animateItem(),
                 )
@@ -221,7 +224,7 @@ private fun ShoppingBadge(count: Int, onClick: () -> Unit) {
     AssistChip(
         onClick = onClick,
         label = { Text(if (count == 0) "Lijst" else "$count", fontWeight = FontWeight.Bold) },
-        leadingIcon = { DrawableIcon(R.drawable.ic_cart, Modifier.size(16.dp), tint = App.colors.groupFg.getValue(TaskGroup.GARDEN)) },
+        leadingIcon = { DrawableIcon(R.drawable.ic_cart, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) },
     )
 }
 

@@ -3,6 +3,7 @@ package nl.wdhertog.takenlijst.ui
 // Gegenereerd uit een selectie Lucide-iconen (https://lucide.dev, ISC-licentie).
 // Een icoon toevoegen: tekenbestand in res/drawable plus een regel in ALL hieronder.
 
+import nl.wdhertog.takenlijst.data.TaskGroup
 import androidx.annotation.DrawableRes
 import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.data.Task
@@ -138,4 +139,4 @@ data class TaskIcon(val key: String, @DrawableRes val drawable: Int, val label: 
 
 /** Het gekozen icoon, anders een geraden icoon, anders dat van de groep. */
 @DrawableRes
-fun Task.iconRes(): Int = (TaskIcon.byKey(icon) ?: TaskIcon.guess(title))?.drawable ?: group.icon()
+fun Task.iconRes(group: TaskGroup): Int = (TaskIcon.byKey(icon) ?: TaskIcon.guess(title))?.drawable ?: group.icon()

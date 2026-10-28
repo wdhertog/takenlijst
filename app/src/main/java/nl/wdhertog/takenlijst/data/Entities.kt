@@ -11,17 +11,44 @@ import nl.wdhertog.takenlijst.domain.Repeat
 import nl.wdhertog.takenlijst.domain.RepeatUnit
 import java.time.LocalDate
 
-enum class TaskGroup(val label: String) {
-    HOME("Huis"),
-    GARDEN("Tuin"),
-    WORK("Werk"),
+/**
+ * Een groep taken (standaard Huis, Tuin en Werk), door de gebruiker in te stellen tot [MAX] stuks.
+ * [icon] is een sleutel uit TaskIcon, [color] een index in het kleurenpalet van het thema.
+ */
+@Entity(tableName = "groups")
+data class TaskGroup(
+    @PrimaryKey val id: String,
+    val name: String,
+    val icon: String,
+    val color: Int,
+    val position: Int,
+) {
+    val label get() = name
+
+    companion object {
+        const val MAX = 5
+        const val HOME = "HOME"
+        const val GARDEN = "GARDEN"
+        const val WORK = "WORK"
+
+        /** De groepen waarmee de app begint; de id's zijn gelijk aan de oude vaste groepen. */
+        val DEFAULTS = listOf(
+            TaskGroup(HOME, "Huis", "huis", 0, 0),
+            TaskGroup(GARDEN, "Tuin", "tuin", 1, 1),
+            TaskGroup(WORK, "Werk", "werk", 2, 2),
+        )
+
+        /** Voor een taak waarvan de groep (nog) niet geladen of verdwenen is. */
+        val FALLBACK = TaskGroup("", "Overig", "", 7, 99)
+    }
 }
 
 @Entity(tableName = "tasks")
 data class Task(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
-    val group: TaskGroup = TaskGroup.HOME,
+    /** Id van de [TaskGroup]; de kolom heet nog "group" uit de tijd van de vaste groepen. */
+    @ColumnInfo(name = "group") val groupId: String = TaskGroup.HOME,
     val repeatUnit: RepeatUnit = RepeatUnit.WEEK,
     val repeatEvery: Int = 1,
     val weekdays: Int = 0,
@@ -88,7 +115,7 @@ data class DoneToday(
     val completionId: Long,
     val taskId: Long,
     val title: String,
-    val group: TaskGroup,
+    val groupId: String,
     val repeatUnit: RepeatUnit,
     val repeatEvery: Int,
     val weekdays: Int,
@@ -99,8 +126,6 @@ data class DoneToday(
 class Converters {
     @TypeConverter fun dateToLong(d: LocalDate?): Long? = d?.toEpochDay()
     @TypeConverter fun longToDate(v: Long?): LocalDate? = v?.let(LocalDate::ofEpochDay)
-    @TypeConverter fun groupToString(g: TaskGroup): String = g.name
-    @TypeConverter fun stringToGroup(s: String): TaskGroup = TaskGroup.valueOf(s)
     @TypeConverter fun unitToString(u: RepeatUnit): String = u.name
     @TypeConverter fun stringToUnit(s: String): RepeatUnit = RepeatUnit.valueOf(s)
     @TypeConverter fun aisleToString(a: Aisle): String = a.name

@@ -29,7 +29,7 @@ import nl.wdhertog.takenlijst.models.Model
 import nl.wdhertog.takenlijst.ui.theme.App
 
 @Composable
-fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
+fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> Unit) {
     val context = LocalContext.current
     val notificationsOff = Build.VERSION.SDK_INT >= 33 &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -55,6 +55,15 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 )
             }) { Text("Meldingsinstellingen openen") }
+        }
+
+        Card("Groepen") {
+            val groups = LocalGroups.current
+            Text(
+                groups.joinToString(", ") { it.name } + " · je kunt er tot ${nl.wdhertog.takenlijst.data.TaskGroup.MAX} instellen, met eigen naam, kleur en icoon.",
+                style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+            )
+            OutlinedButton(onClick = onGroups) { Text("Groepen beheren") }
         }
 
         SectionHeader("Spraak")

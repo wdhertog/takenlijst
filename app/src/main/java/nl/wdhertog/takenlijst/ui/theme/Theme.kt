@@ -35,8 +35,8 @@ data class AppColors(
     val card: Color,
     val line: Color,
     val muted: Color,
-    val groupBg: Map<TaskGroup, Color>,
-    val groupFg: Map<TaskGroup, Color>,
+    /** Kleurparen (achtergrond, voorgrond) waaruit een groep kiest; de index staat in TaskGroup.color. */
+    val palette: List<Pair<Color, Color>>,
     val lateBg: Color,
     val lateFg: Color,
     val lateRing: Color,
@@ -49,8 +49,16 @@ private val LightApp = AppColors(
     card = Color(0xFFFFFFFF),
     line = Color(0xFFE4E2DC),
     muted = Color(0xFF5E6660),
-    groupBg = mapOf(TaskGroup.HOME to Color(0xFFE4ECF7), TaskGroup.GARDEN to Color(0xFFE3EFE7), TaskGroup.WORK to Color(0xFFEFE7F5)),
-    groupFg = mapOf(TaskGroup.HOME to Color(0xFF244E85), TaskGroup.GARDEN to Color(0xFF245A40), TaskGroup.WORK to Color(0xFF663F83)),
+    palette = listOf(
+        Color(0xFFE4ECF7) to Color(0xFF244E85), // blauw
+        Color(0xFFE3EFE7) to Color(0xFF245A40), // groen
+        Color(0xFFEFE7F5) to Color(0xFF663F83), // paars
+        Color(0xFFFBEBDF) to Color(0xFF8A4518), // oranje
+        Color(0xFFDDF0EE) to Color(0xFF1D5C57), // petrol
+        Color(0xFFF8E4EC) to Color(0xFF8C2F55), // roze
+        Color(0xFFF6EED3) to Color(0xFF6B5410), // oker
+        Color(0xFFECEBE7) to Color(0xFF474D49), // grijs
+    ),
     lateBg = Color(0xFFFBEBDF),
     lateFg = Color(0xFFA04A1C),
     lateRing = Color(0xFFF3C9AE),
@@ -63,8 +71,16 @@ private val DarkApp = AppColors(
     card = Color(0xFF1E211F),
     line = Color(0xFF2E322F),
     muted = Color(0xFFA9B1AB),
-    groupBg = mapOf(TaskGroup.HOME to Color(0xFF22324A), TaskGroup.GARDEN to Color(0xFF1F3A2C), TaskGroup.WORK to Color(0xFF3A2A47)),
-    groupFg = mapOf(TaskGroup.HOME to Color(0xFFB7CDF0), TaskGroup.GARDEN to Color(0xFFA8D8BC), TaskGroup.WORK to Color(0xFFDCC3F0)),
+    palette = listOf(
+        Color(0xFF22324A) to Color(0xFFB7CDF0),
+        Color(0xFF1F3A2C) to Color(0xFFA8D8BC),
+        Color(0xFF3A2A47) to Color(0xFFDCC3F0),
+        Color(0xFF4A2A17) to Color(0xFFF3B48C),
+        Color(0xFF173A37) to Color(0xFF9AD8D1),
+        Color(0xFF47202F) to Color(0xFFF0B4CA),
+        Color(0xFF3D3415) to Color(0xFFE6D08A),
+        Color(0xFF2E322F) to Color(0xFFC9CFCA),
+    ),
     lateBg = Color(0xFF4A2A17),
     lateFg = Color(0xFFF3B48C),
     lateRing = Color(0xFF7A4526),
@@ -140,6 +156,17 @@ val LocalAppColors = staticCompositionLocalOf { LightApp }
 object App {
     val colors: AppColors @Composable get() = LocalAppColors.current
 }
+
+/** Lichte achtergrondkleur van kleur [index] uit het palet. */
+@Composable
+fun groupBg(index: Int): Color = App.colors.palette[index.mod(App.colors.palette.size)].first
+
+/** Donkere voorgrondkleur (tekst, icoon) van kleur [index] uit het palet. */
+@Composable
+fun groupFg(index: Int): Color = App.colors.palette[index.mod(App.colors.palette.size)].second
+
+val TaskGroup.bg: Color @Composable get() = groupBg(color)
+val TaskGroup.fg: Color @Composable get() = groupFg(color)
 
 @Composable
 fun TakenTheme(content: @Composable () -> Unit) {

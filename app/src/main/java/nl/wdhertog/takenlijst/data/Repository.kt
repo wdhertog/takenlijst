@@ -16,6 +16,40 @@ class Repository(
 ) {
     private val tasks = db.tasks()
     private val shopping = db.shopping()
+    private val groupDao = db.groups()
+
+    val groups = groupDao.observeAll()
+    suspend fun groupsOnce() = groupDao.all()
+
+    /** Groep opslaan; een nieuwe groep komt achteraan. Er kunnen er hooguit [TaskGroup.MAX] zijn. */
+    suspend fun saveGroup(group: TaskGroup) {
+        val existing = groupDao.all()
+        if (existing.none { it.id == group.id }) {
+            check(existing.size < TaskGroup.MAX) { "Er kunnen hooguit ${TaskGroup.MAX} groepen zijn" }
+            groupDao.upsert(group.copy(position = (existing.maxOfOrNull { it.position } ?: -1) + 1))
+        } else {
+            groupDao.upsert(group)
+        }
+    }
+
+    /** Groep weghalen; de taken erin gaan naar [moveTo]. */
+    suspend fun deleteGroup(id: String, moveTo: String) {
+        db.withTransaction {
+            tasks.moveGroup(id, moveTo)
+            groupDao.delete(id)
+            groupDao.upsertAll(groupDao.all().mapIndexed { i, g -> g.copy(position = i) })
+        }
+    }
+
+    /** Groep een plek omhoog (-1) of omlaag (+1) zetten. */
+    suspend fun moveGroup(id: String, delta: Int) {
+        val list = groupDao.all().toMutableList()
+        val i = list.indexOfFirst { it.id == id }
+        val j = i + delta
+        if (i < 0 || j !in list.indices) return
+        list.add(j, list.removeAt(i))
+        groupDao.upsertAll(list.mapIndexed { index, g -> g.copy(position = index) })
+    }
 
     val allTasks = tasks.observeAll()
     fun doneOn(day: LocalDate) = tasks.observeDoneOn(day)
@@ -95,9 +129,12 @@ class Repository(
     suspend fun isEmpty() = tasks.count() == 0
 
     suspend fun addExamples(today: LocalDate = LocalDate.now()) {
-        fun t(title: String, group: TaskGroup, repeat: Repeat, inDays: Long = 0, reminder: Int? = null, shoppingTask: Boolean = false, fromDone: Boolean = false, times: List<Int> = emptyList()) =
+        // Is een standaardgroep weggehaald, dan komen die voorbeelden in de eerste groep.
+        val groups = groupDao.all().map { it.id }
+        fun inGroup(id: String) = if (id in groups) id else groups.firstOrNull() ?: id
+        fun t(title: String, group: String, repeat: Repeat, inDays: Long = 0, reminder: Int? = null, shoppingTask: Boolean = false, fromDone: Boolean = false, times: List<Int> = emptyList()) =
             Task(
-                title = title, group = group,
+                title = title, groupId = inGroup(group),
                 repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
                 nextDue = Recurrence.firstDue(repeat, today.plusDays(inDays)),
                 reminderMinutes = reminder, linkShopping = shoppingTask, fromCompletion = fromDone,

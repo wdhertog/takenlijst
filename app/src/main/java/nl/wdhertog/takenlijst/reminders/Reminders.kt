@@ -78,14 +78,16 @@ object ReminderScheduler {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val since = prefs.getLong(LAST_CHECK, now)
-        val tasks = TakenApp.from(context).repository.allTasksOnce()
+        val repo = TakenApp.from(context).repository
+        val tasks = repo.allTasksOnce()
+        val groups = repo.groupsOnce().associateBy { it.id }
         tasks.filter { t -> triggerTimes(t).any { it in (since + 1)..now } }
-            .forEach { notify(context, it) }
+            .forEach { notify(context, it, groups[it.groupId]?.name ?: "") }
         prefs.edit().putLong(LAST_CHECK, now).apply()
         reschedule(context)
     }
 
-    private fun notify(context: Context, task: Task) {
+    private fun notify(context: Context, task: Task, groupName: String) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -103,7 +105,7 @@ object ReminderScheduler {
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFF2F6B4F.toInt())
             .setContentTitle(if (task.timesPerDay > 1) "${task.title} (${task.slotsDone + 1} van ${task.timesPerDay})" else task.title)
-            .setContentText("${task.group.label} · ${task.describeRepeat()}")
+            .setContentText(listOf(groupName, task.describeRepeat()).filter { it.isNotEmpty() }.joinToString(" · "))
             .setContentIntent(open)
             .setAutoCancel(true)
             .addAction(0, "Gedaan", done)

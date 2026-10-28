@@ -1,5 +1,8 @@
 package nl.wdhertog.takenlijst.ui
 
+import androidx.compose.runtime.staticCompositionLocalOf
+import nl.wdhertog.takenlijst.ui.theme.fg
+import nl.wdhertog.takenlijst.ui.theme.bg
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -75,21 +78,24 @@ fun lateLabel(due: LocalDate, today: LocalDate): String {
 fun minutesLabel(m: Int) = "%02d:%02d".format(m / 60, m % 60)
 
 @DrawableRes
-fun TaskGroup.icon(): Int = when (this) {
-    TaskGroup.HOME -> R.drawable.ic_home
-    TaskGroup.GARDEN -> R.drawable.ic_leaf
-    TaskGroup.WORK -> R.drawable.ic_work
-}
+fun TaskGroup.icon(): Int = TaskIcon.byKey(icon)?.drawable ?: R.drawable.ic_home
+
+/** De groepen van de gebruiker, op volgorde; wordt bovenaan de app gevuld vanuit de database. */
+val LocalGroups = staticCompositionLocalOf { TaskGroup.DEFAULTS }
+
+/** De groep met deze id, of een neutrale "Overig" als hij (nog) niet bestaat. */
+@Composable
+fun groupOf(id: String): TaskGroup = LocalGroups.current.firstOrNull { it.id == id } ?: TaskGroup.FALLBACK
 
 @Composable
 fun GroupTag(group: TaskGroup) {
     Text(
         group.label,
         style = MaterialTheme.typography.labelMedium,
-        color = App.colors.groupFg.getValue(group),
+        color = group.fg,
         modifier = Modifier
             .clip(CircleShape)
-            .background(App.colors.groupBg.getValue(group))
+            .background(group.bg)
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }

@@ -1,5 +1,8 @@
 package nl.wdhertog.takenlijst.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import nl.wdhertog.takenlijst.ui.theme.fg
+import nl.wdhertog.takenlijst.ui.theme.bg
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -127,7 +130,9 @@ fun TaskEditScreen(
     var lastDone by remember { mutableStateOf<LocalDate?>(null) }
 
     var title by rememberSaveable { mutableStateOf("") }
-    var group by rememberSaveable { mutableStateOf(TaskGroup.HOME) }
+    val groups = LocalGroups.current
+    var groupId by rememberSaveable { mutableStateOf(groups.firstOrNull()?.id ?: TaskGroup.HOME) }
+    val group = groupOf(groupId)
     var preset by rememberSaveable { mutableStateOf(Preset.WEEKLY) }
     var customUnit by rememberSaveable { mutableStateOf(RepeatUnit.WEEK) }
     var customEvery by rememberSaveable { mutableIntStateOf(2) }
@@ -156,7 +161,7 @@ fun TaskEditScreen(
         if (taskId != 0L && !loaded) {
             vm.task(taskId)?.let { t ->
                 original = t
-                title = t.title; group = t.group
+                title = t.title; groupId = t.groupId
                 preset = presetOf(t.repeat)
                 if (preset == Preset.CUSTOM) { customUnit = t.repeatUnit; customEvery = t.repeatEvery }
                 weekdays = t.weekdays
@@ -193,7 +198,7 @@ fun TaskEditScreen(
         val times = slotList(slotTimes, count)
         vm.save(
             base.copy(
-                title = title.trim(), group = group,
+                title = title.trim(), groupId = groupId,
                 repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
                 nextDue = due,
                 // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
@@ -245,19 +250,19 @@ fun TaskEditScreen(
 
             Label("Groep")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TaskGroup.entries.forEach { g ->
-                    val selected = g == group
+                groups.forEach { g ->
+                    val selected = g.id == groupId
                     Surface(
-                        onClick = { group = g },
+                        onClick = { groupId = g.id },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (selected) App.colors.groupBg.getValue(g) else App.colors.card,
-                        border = BorderStroke(if (selected) 2.dp else 1.5.dp, if (selected) App.colors.groupFg.getValue(g) else MaterialTheme.colorScheme.outlineVariant),
+                        color = if (selected) g.bg else App.colors.card,
+                        border = BorderStroke(if (selected) 2.dp else 1.5.dp, if (selected) g.fg else MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.weight(1f).height(76.dp).semantics { this.selected = selected },
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            DrawableIcon(g.icon(), tint = App.colors.groupFg.getValue(g))
+                            DrawableIcon(g.icon(), tint = g.fg)
                             Spacer(Modifier.height(6.dp))
-                            Text(g.label, style = MaterialTheme.typography.labelLarge, color = App.colors.groupFg.getValue(g))
+                            Text(g.label, style = MaterialTheme.typography.labelLarge, color = g.fg, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp))
                         }
                     }
                 }
@@ -277,9 +282,9 @@ fun TaskEditScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(App.colors.groupBg.getValue(group)),
+                    Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(group.bg),
                     contentAlignment = Alignment.Center,
-                ) { DrawableIcon(shown?.drawable ?: group.icon(), Modifier.size(22.dp), tint = App.colors.groupFg.getValue(group)) }
+                ) { DrawableIcon(shown?.drawable ?: group.icon(), Modifier.size(22.dp), tint = group.fg) }
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(chosen?.label ?: "Automatisch", style = MaterialTheme.typography.titleSmall)
                     Text(

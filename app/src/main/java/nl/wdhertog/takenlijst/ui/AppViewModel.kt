@@ -54,7 +54,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repo = app.repository
 
     private val today = MutableStateFlow(LocalDate.now())
-    val groupFilter = MutableStateFlow<TaskGroup?>(null)
+    /** Id van de groep waarop Vandaag gefilterd is, of null voor alles. */
+    val groupFilter = MutableStateFlow<String?>(null)
+
+    val groups: StateFlow<List<TaskGroup>> = repo.groups.stateIn(viewModelScope, SharingStarted.Eagerly, TaskGroup.DEFAULTS)
+
+    fun saveGroup(group: TaskGroup) = viewModelScope.launch { repo.saveGroup(group) }
+    fun deleteGroup(id: String, moveTo: String) = viewModelScope.launch {
+        repo.deleteGroup(id, moveTo)
+        if (groupFilter.value == id) groupFilter.value = null
+    }
+    fun moveGroup(id: String, delta: Int) = viewModelScope.launch { repo.moveGroup(id, delta) }
 
     /** Bij terugkeren naar de app kan het intussen een nieuwe dag zijn. */
     fun refreshDate() = today.update { LocalDate.now() }
@@ -64,11 +74,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val todayState: StateFlow<TodayState> = combine(
         repo.allTasks, today.flatMapLatest { repo.doneOn(it) }, today, groupFilter,
     ) { all, done, day, filter ->
-        val visible = if (filter == null) all else all.filter { it.group == filter }
+        val visible = if (filter == null) all else all.filter { it.groupId == filter }
         val dated = visible.filter { it.nextDue != null }.sortedWith(compareBy({ it.nextDue }, { it.nextSlotTime ?: Int.MAX_VALUE }))
         val dueToday = dated.filter { it.nextDue == day }.map { it.id }.toSet()
         // Een taak van meerdere keren per dag staat pas bij "gedaan" als alle keren gedaan zijn, en dan één keer.
-        val finished = (if (filter == null) done else done.filter { it.group == filter })
+        val finished = (if (filter == null) done else done.filter { it.groupId == filter })
             .filter { it.taskId !in dueToday }
             .associateBy { it.taskId }.values.toList()
         TodayState(
