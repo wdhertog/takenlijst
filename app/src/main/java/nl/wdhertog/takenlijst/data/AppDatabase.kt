@@ -36,7 +36,7 @@ interface TaskDao {
     @Delete suspend fun delete(task: Task)
 
     @Query(
-        """SELECT c.id AS completionId, t.id AS taskId, t.title, t."group" AS groupId, t.repeatUnit, t.repeatEvery, t.weekdays
+        """SELECT c.id AS completionId, t.id AS taskId, t.title, t."group" AS groupId, t.repeatUnit, t.repeatEvery, t.weekdays, t.icon
            FROM completions c JOIN tasks t ON t.id = c.taskId
            WHERE c.doneOn = :day ORDER BY c.id"""
     )

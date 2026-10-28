@@ -139,6 +139,7 @@ data class DoneToday(
     val repeatUnit: RepeatUnit,
     val repeatEvery: Int,
     val weekdays: Int,
+    val icon: String,
 ) {
     val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays)
 }

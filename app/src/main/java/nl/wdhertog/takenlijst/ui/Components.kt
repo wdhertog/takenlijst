@@ -1,5 +1,6 @@
 package nl.wdhertog.takenlijst.ui
 
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.staticCompositionLocalOf
 import nl.wdhertog.takenlijst.ui.theme.fg
 import nl.wdhertog.takenlijst.ui.theme.bg
@@ -160,6 +161,7 @@ fun TaskRow(
     modifier: Modifier = Modifier,
     late: String? = null,
     progress: Float = 0f,
+    @DrawableRes icon: Int? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val colors = App.colors
@@ -179,6 +181,13 @@ fun TaskRow(
             progress = progress,
         )
         Spacer(Modifier.width(4.dp))
+        if (icon != null) {
+            Box(
+                Modifier.alpha(if (checked) 0.5f else 1f).size(36.dp).clip(RoundedCornerShape(12.dp)).background(group.bg),
+                contentAlignment = Alignment.Center,
+            ) { DrawableIcon(icon, Modifier.size(20.dp), tint = group.fg) }
+            Spacer(Modifier.width(12.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 title,

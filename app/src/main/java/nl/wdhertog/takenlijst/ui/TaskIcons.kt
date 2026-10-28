@@ -139,4 +139,7 @@ data class TaskIcon(val key: String, @DrawableRes val drawable: Int, val label: 
 
 /** Het gekozen icoon, anders een geraden icoon, anders dat van de groep. */
 @DrawableRes
-fun Task.iconRes(group: TaskGroup): Int = (TaskIcon.byKey(icon) ?: TaskIcon.guess(title))?.drawable ?: group.icon()
+fun Task.iconRes(group: TaskGroup): Int = taskIconRes(icon, title, group)
+
+@DrawableRes
+fun taskIconRes(icon: String, title: String, group: TaskGroup): Int = (TaskIcon.byKey(icon) ?: TaskIcon.guess(title))?.drawable ?: group.icon()

@@ -117,7 +117,7 @@ fun TodayScreen(
                 TaskRow(
                     t.title, groupOf(t.groupId), t.describeRepeat(), checked = false,
                     onCheck = { complete(t) }, onClick = { onEdit(t.id) },
-                    late = lateLabel(t.nextDue!!, day),
+                    late = lateLabel(t.nextDue!!, day), icon = t.iconRes(groupOf(t.groupId)),
                     modifier = Modifier.animateItem(),
                 )
             }
@@ -137,13 +137,14 @@ fun TodayScreen(
             TaskRow(
                 d.title, groupOf(d.groupId), d.repeat.describe(), checked = true,
                 onCheck = { vm.undo(d.completionId) }, onClick = { onEdit(d.taskId) },
+                icon = taskIconRes(d.icon, d.title, groupOf(d.groupId)),
                 modifier = Modifier.animateItem(),
             )
         }
         items(state.due, key = { "due${it.id}" }) { t ->
             TaskRow(
                 t.title, groupOf(t.groupId), detail(t), checked = false,
-                onCheck = { complete(t) }, onClick = { onEdit(t.id) },
+                onCheck = { complete(t) }, onClick = { onEdit(t.id) }, icon = t.iconRes(groupOf(t.groupId)),
                 modifier = Modifier.animateItem(),
                 progress = if (t.timesPerDay > 1) t.slotsDone / t.timesPerDay.toFloat() else 0f,
                 trailing = { if (t.linkShopping) ShoppingBadge(openShopping, onShopping) },
@@ -155,7 +156,7 @@ fun TodayScreen(
             items(state.upcoming, key = { "next${it.id}" }) { t ->
                 TaskRow(
                     t.title, groupOf(t.groupId), "${t.describeRepeat()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
-                    onCheck = { complete(t) }, onClick = { onEdit(t.id) },
+                    onCheck = { complete(t) }, onClick = { onEdit(t.id) }, icon = t.iconRes(groupOf(t.groupId)),
                     modifier = Modifier.animateItem(),
                 )
             }
