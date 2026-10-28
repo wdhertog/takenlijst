@@ -1,0 +1,5 @@
+• Barcode scannen, met keuze tussen een ruime en een precieze naam; de app onthoudt je keuze
+• Eigen groepen (max. 5) met naam, kleur en icoon
+• Iconen per taak, ook op het Vandaag-scherm
+• Thema kiezen: systeem, licht of donker
+• Winkelmodus houdt het scherm aan en staat rechtop

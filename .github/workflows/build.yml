@@ -1,8 +1,11 @@
 name: APK bouwen
 
+# Elke push naar main levert een testversie (pre-release build-N).
+# Een tag als v1.1.0 levert een echte release met APK en AAB (voor IzzyOnDroid en Google Play).
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -11,8 +14,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - uses: actions/setup-java@v5
         with:
@@ -20,11 +27,22 @@ jobs:
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.10.2"
 
-      - name: whisper.cpp ophalen
-        run: git clone --depth 1 --branch v1.7.6 https://github.com/ggml-org/whisper.cpp third_party/whisper.cpp
+      - name: Versie bepalen
+        run: |
+          version=$(grep -oP 'versionName = "\K[0-9.]+' app/build.gradle.kts)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)" >> "$GITHUB_ENV"
+          if [ "$IS_RELEASE" = "true" ]; then
+            if [ "${GITHUB_REF_NAME}" != "v$version" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} past niet bij versionName $version in app/build.gradle.kts."
+              exit 1
+            fi
+            echo "APK_NAME=takenlijst-$version" >> "$GITHUB_ENV"
+          else
+            echo "VERSION_SUFFIX=-build.${{ github.run_number }}" >> "$GITHUB_ENV"
+            echo "APK_NAME=takenlijst-$version-build.${{ github.run_number }}" >> "$GITHUB_ENV"
+          fi
 
       - name: Ondertekeningssleutel klaarzetten
         env:
@@ -51,26 +69,41 @@ jobs:
           fi
 
       - name: Tests draaien
-        run: gradle testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: APK bouwen
+      - name: APK en AAB bouwen
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle assembleRelease --stacktrace
+        run: ./gradlew assembleRelease bundleRelease --stacktrace
 
-      - name: APK hernoemen
-        run: cp app/build/outputs/apk/release/app-release.apk "takenlijst-${{ github.run_number }}.apk"
+      - name: Bestanden hernoemen
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "$APK_NAME.aab"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: takenlijst-${{ github.run_number }}
-          path: takenlijst-${{ github.run_number }}.apk
+          name: ${{ env.APK_NAME }}
+          path: |
+            ${{ env.APK_NAME }}.apk
+            ${{ env.APK_NAME }}.aab
 
       # Alleen met de vaste sleutel publiceren, anders installeren updates niet over elkaar heen.
-      - name: Release publiceren
-        if: env.KEYSTORE_FILE != ''
+      - name: Testversie publiceren
+        if: env.KEYSTORE_FILE != '' && env.IS_RELEASE != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Takenlijst 1.0.${{ github.run_number }}
-          files: takenlijst-${{ github.run_number }}.apk
+          name: Testversie ${{ env.VERSION }}-build.${{ github.run_number }}
+          prerelease: true
+          files: ${{ env.APK_NAME }}.apk
+
+      - name: Release publiceren
+        if: env.KEYSTORE_FILE != '' && env.IS_RELEASE == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Takenlijst ${{ env.VERSION }}
+          body_path: fastlane/metadata/android/nl-NL/changelogs/${{ env.VERSION_CODE }}.txt
+          files: |
+            ${{ env.APK_NAME }}.apk
+            ${{ env.APK_NAME }}.aab

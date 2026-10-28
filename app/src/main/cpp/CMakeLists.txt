@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(whisperjni C CXX)
 
-# whisper.cpp wordt in CI naar third_party/whisper.cpp gekloond (zie .github/workflows/build.yml).
+# whisper.cpp is een git-submodule in third_party/whisper.cpp (git submodule update --init).
 if(NOT DEFINED WHISPER_DIR)
     set(WHISPER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/whisper.cpp)
 endif()

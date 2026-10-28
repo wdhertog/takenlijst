@@ -1,0 +1,27 @@
+<p><i>The app is currently available in Dutch only.</i></p>
+
+<p>Takenlijst ("task list") helps you keep up with household chores: tasks that come back every day, week, month, quarter or year, and jobs you schedule when needed. Everything stays on your phone, with no account and no Google services, so it also works on /e/OS, LineageOS and GrapheneOS.</p>
+
+<p><b>Tasks</b></p>
+<ul>
+<li>Today at a glance: what is overdue, what is due today and what is coming up</li>
+<li>Repeat daily, weekly (on fixed days), monthly, quarterly, yearly or on demand, or plan from the moment you actually did it</li>
+<li>Several times a day, like walking the dogs at 7:30, 13:00 and 21:00</li>
+<li>Reminders with a Done button in the notification</li>
+<li>Up to five groups of your own (e.g. Home, Garden, Work) with name, colour and icon</li>
+<li>Almost a hundred icons to choose from, with search</li>
+</ul>
+
+<p><b>Shopping</b></p>
+<ul>
+<li>Items are sorted by supermarket aisle automatically</li>
+<li>Shopping mode: large rows, screen stays on in portrait</li>
+<li>Dictate your list, transcribed on the device (whisper.cpp)</li>
+<li>Read a printed or typed list from a photo (Tesseract)</li>
+<li>Scan a barcode and choose a broad name ("Milk") or a precise one ("Semi-skimmed milk 1 L"); the app remembers your choice</li>
+</ul>
+
+<p><b>Privacy</b><br/>
+No account, no ads, no tracking. The internet is only used to download the speech model and, if you turn it on, to look up a barcode number at Open Food Facts.</p>
+
+<p>Light, dark or follow the system. Open source under GPL-3.0.</p>

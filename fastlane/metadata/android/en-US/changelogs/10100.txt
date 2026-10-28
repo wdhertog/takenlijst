@@ -1,0 +1,5 @@
+• Scan barcodes and choose a broad or precise name; the app remembers your choice
+• Your own groups (up to 5) with name, colour and icon
+• Icons per task, also on the Today screen
+• Choose a theme: system, light or dark
+• Shopping mode keeps the screen on in portrait

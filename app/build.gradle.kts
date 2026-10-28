@@ -7,7 +7,8 @@ plugins {
 
 // In GitHub Actions wordt de release-sleutel via omgevingsvariabelen aangeleverd.
 val keystoreFile: String? = System.getenv("KEYSTORE_FILE")
-val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+// Tussentijdse builds uit CI krijgen een achtervoegsel ("-build.42"); releases (tag v1.2.3) niet.
+val versionSuffix = System.getenv("VERSION_SUFFIX") ?: ""
 
 android {
     namespace = "nl.wdhertog.takenlijst"
@@ -17,8 +18,9 @@ android {
         applicationId = "nl.wdhertog.takenlijst"
         minSdk = 26
         targetSdk = 35
-        versionCode = buildNumber
-        versionName = "1.1.$buildNumber"
+        // Bij een nieuwe release beide ophogen: 1.1.0 -> 10100, 1.2.3 -> 10203.
+        versionCode = 10100
+        versionName = "1.1.0$versionSuffix"
 
         ndk {
             abiFilters += "arm64-v8a"
@@ -68,6 +70,12 @@ android {
     // Het Tesseract-taalbestand is al gecomprimeerd; niet nog eens inpakken.
     androidResources {
         noCompress += listOf("traineddata")
+    }
+
+    // Geen versleutelde afhankelijkhedenlijst van Google in de APK; F-Droid en IzzyOnDroid weigeren die.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     lint {

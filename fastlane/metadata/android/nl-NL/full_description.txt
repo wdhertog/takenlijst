@@ -1,0 +1,25 @@
+<p>Takenlijst helpt je het huishouden bij te houden: taken die elke dag, week, maand, kwartaal of jaar terugkomen, en klusjes op afroep. Alles blijft op je telefoon, zonder account en zonder Google-diensten, dus de app werkt ook op /e/OS, LineageOS en GrapheneOS.</p>
+
+<p><b>Taken</b></p>
+<ul>
+<li>Vandaag in één oogopslag: wat te laat is, wat vandaag moet en wat er binnenkort aankomt</li>
+<li>Herhalen per dag, week (op vaste dagen), maand, kwartaal, jaar of op afroep, of plannen vanaf het moment dat je de taak echt deed</li>
+<li>Meerdere keren per dag, zoals de honden uitlaten om 7:30, 13:00 en 21:00, met een cirkel die per keer voller wordt</li>
+<li>Herinneringen met een knop Gedaan in de melding</li>
+<li>Tot vijf eigen groepen (bijv. Huis, Tuin, Werk) met naam, kleur en icoon</li>
+<li>Bijna honderd iconen om uit te kiezen, met zoekfunctie</li>
+</ul>
+
+<p><b>Boodschappen</b></p>
+<ul>
+<li>Producten worden vanzelf per afdeling gesorteerd</li>
+<li>Winkelmodus: grote regels, scherm blijft aan en staat rechtop</li>
+<li>Inspreken: zeg "melk, twee pakken yoghurt en appels" en de app schrijft het op, helemaal op je telefoon (whisper.cpp)</li>
+<li>Een getypt of gedrukt lijstje van een foto lezen (Tesseract)</li>
+<li>Barcode scannen en kiezen tussen een ruime naam ("Melk") of een precieze ("AH Halfvolle melk 1 L"); de app onthoudt je keuze</li>
+</ul>
+
+<p><b>Privacy</b><br/>
+Geen account, geen advertenties, geen tracking. Internet wordt alleen gebruikt om het spraakmodel te downloaden en, als je dat zelf aanzet, om een barcodenummer op te zoeken bij Open Food Facts.</p>
+
+<p>Licht, donker of volgens je telefoon. Open source onder GPL-3.0.</p>
