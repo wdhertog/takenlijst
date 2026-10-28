@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Alleen voor het opstartscherm; de rest van het thema zit in Compose. -->
+    <style name="Theme.Takenlijst" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <color name="ground">#F6F5F1</color>
+    <color name="launcher_bg">#2F6B4F</color>
+</resources>
