@@ -74,7 +74,7 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
                     "Alles blijft op je telefoon. Internet wordt alleen gebruikt om het spraakmodel eenmalig te downloaden.\n\n" +
                     "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) met het Nederlandse taalmodel uit tessdata_fast (Apache 2.0), " +
                     "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), " +
-                    "en het lettertype Figtree (SIL Open Font License).",
+                    "iconen van Lucide (ISC) en het lettertype Figtree (SIL Open Font License).",
                 style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
             )
         }

@@ -110,7 +110,16 @@ private val unitLabels = listOf(RepeatUnit.DAY to "dagen", RepeatUnit.WEEK to "w
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
+fun TaskEditScreen(
+    vm: AppViewModel,
+    taskId: Long,
+    onDone: () -> Unit,
+    /** Opent de iconenkiezer met het huidige icoon, de naam (voor "automatisch") en de groep (voor de kleur). */
+    onPickIcon: (current: String, title: String, group: TaskGroup) -> Unit,
+    /** Uitkomst van de iconenkiezer, of null als er niets gekozen is. */
+    pickedIcon: String?,
+    onPickedIconHandled: () -> Unit,
+) {
     val context = LocalContext.current
     val today by vm.currentDate.collectAsState()
     var original by remember { mutableStateOf<Task?>(null) }
@@ -132,6 +141,12 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
     var slotTimes by rememberSaveable { mutableStateOf("") }
     var pickSlot by remember { mutableStateOf<Int?>(null) }
     var icon by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(pickedIcon) {
+        if (pickedIcon != null) {
+            icon = pickedIcon
+            onPickedIconHandled()
+        }
+    }
 
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
@@ -249,12 +264,30 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
             }
 
             Label("Icoon")
-            val guessed = TaskIcon.guess(title)?.drawable ?: group.icon()
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconChoice(guessed, "Automatisch", selected = icon.isEmpty(), group = group, auto = true) { icon = "" }
-                TaskIcon.entries.forEach { choice ->
-                    IconChoice(choice.drawable, choice.label, selected = icon == choice.key, group = group) { icon = choice.key }
+            val chosen = TaskIcon.byKey(icon)
+            val shown = chosen ?: TaskIcon.guess(title)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(App.colors.card)
+                    .clickable { onPickIcon(icon, title, group) }
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(App.colors.groupBg.getValue(group)),
+                    contentAlignment = Alignment.Center,
+                ) { DrawableIcon(shown?.drawable ?: group.icon(), Modifier.size(22.dp), tint = App.colors.groupFg.getValue(group)) }
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(chosen?.label ?: "Automatisch", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (chosen != null) chosen.category else "Gekozen op basis van de naam",
+                        style = MaterialTheme.typography.bodySmall, color = App.colors.muted,
+                    )
                 }
+                Text("Wijzigen", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
 
             Label("Hoe vaak?")
@@ -492,23 +525,6 @@ private fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Box(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
             Text(text, style = MaterialTheme.typography.labelLarge, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
         }
-    }
-}
-
-@Composable
-private fun IconChoice(drawable: Int, label: String, selected: Boolean, group: TaskGroup, auto: Boolean = false, onClick: () -> Unit) {
-    val fg = App.colors.groupFg.getValue(group)
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            onClick = onClick,
-            shape = RoundedCornerShape(14.dp),
-            color = if (selected) App.colors.groupBg.getValue(group) else App.colors.card,
-            border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) fg else MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.size(52.dp).semantics { this.selected = selected; contentDescription = label },
-        ) {
-            Box(contentAlignment = Alignment.Center) { DrawableIcon(drawable, Modifier.size(24.dp), tint = fg) }
-        }
-        if (auto) Text("auto", style = MaterialTheme.typography.labelMedium, color = App.colors.muted, modifier = Modifier.padding(top = 2.dp))
     }
 }
 

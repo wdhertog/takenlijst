@@ -42,4 +42,5 @@ gradle testDebugUnitTest assembleDebug
 - Tesseract en [Tesseract4Android](https://github.com/adaptech-cz/Tesseract4Android) — Apache 2.0
 - Nederlands taalmodel uit [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) — Apache 2.0
 - whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT)
+- Iconen van [Lucide](https://lucide.dev) — ISC
 - Lettertype [Figtree](https://github.com/erikdkennedy/figtree) — SIL Open Font License 1.1

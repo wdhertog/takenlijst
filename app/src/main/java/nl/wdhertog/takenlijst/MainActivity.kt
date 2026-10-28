@@ -1,5 +1,6 @@
 package nl.wdhertog.takenlijst
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -33,8 +35,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.ui.AppViewModel
 import nl.wdhertog.takenlijst.ui.DrawableIcon
+import nl.wdhertog.takenlijst.ui.IconPickerScreen
 import nl.wdhertog.takenlijst.ui.MoreScreen
 import nl.wdhertog.takenlijst.ui.ScanScreen
 import nl.wdhertog.takenlijst.ui.ShoppingScreen
@@ -53,6 +57,9 @@ class MainActivity : ComponentActivity() {
         setContent { TakenTheme { AppRoot(vm) } }
     }
 }
+
+/** Sleutel waarmee de iconenkiezer zijn keuze teruggeeft aan de taakeditor. */
+private const val PICKED_ICON = "gekozen_icoon"
 
 private enum class Tab(val route: String, val label: String, val icon: Int) {
     TODAY("vandaag", "Vandaag", R.drawable.ic_sun),
@@ -111,8 +118,36 @@ private fun AppRoot(vm: AppViewModel) {
             composable(Tab.TASKS.route) { TasksScreen(vm, padding, onEdit = { nav.navigate("bewerk/$it") }) }
             composable(Tab.SHOPPING.route) { ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") }) }
             composable(Tab.MORE.route) { MoreScreen(vm, padding) }
-            composable("bewerk/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                TaskEditScreen(vm, it.arguments?.getLong("id") ?: 0L, onDone = { nav.popBackStack() })
+            composable("bewerk/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                val picked by entry.savedStateHandle.getStateFlow<String?>(PICKED_ICON, null).collectAsState()
+                TaskEditScreen(
+                    vm, entry.arguments?.getLong("id") ?: 0L,
+                    onDone = { nav.popBackStack() },
+                    onPickIcon = { current, title, group ->
+                        nav.navigate("icoon/${group.name}?huidig=${Uri.encode(current)}&naam=${Uri.encode(title)}")
+                    },
+                    pickedIcon = picked,
+                    onPickedIconHandled = { entry.savedStateHandle[PICKED_ICON] = null },
+                )
+            }
+            composable(
+                "icoon/{groep}?huidig={huidig}&naam={naam}",
+                arguments = listOf(
+                    navArgument("huidig") { defaultValue = "" },
+                    navArgument("naam") { defaultValue = "" },
+                ),
+            ) { entry ->
+                val args = entry.arguments
+                IconPickerScreen(
+                    current = args?.getString("huidig").orEmpty(),
+                    title = args?.getString("naam").orEmpty(),
+                    group = TaskGroup.valueOf(args?.getString("groep") ?: TaskGroup.HOME.name),
+                    onPick = { key ->
+                        nav.previousBackStackEntry?.savedStateHandle?.set(PICKED_ICON, key)
+                        nav.popBackStack()
+                    },
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable("invoer/{soort}") {
                 ScanScreen(vm, voice = it.arguments?.getString("soort") == "spraak", onDone = { nav.popBackStack() })
