@@ -37,6 +37,19 @@ jobs:
             echo "::warning::Geen KEYSTORE_BASE64-secret: APK wordt met een tijdelijke sleutel ondertekend en er komt geen release."
           fi
 
+      # Duidelijke foutmelding als het secret een andere sleutel bevat (bijv. die van een andere app).
+      - name: Sleutel controleren
+        if: env.KEYSTORE_FILE != ''
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          aliases=$(keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" | grep PrivateKeyEntry | cut -d, -f1)
+          echo "Sleutels in het secret: $aliases"
+          if ! echo "$aliases" | grep -qx takenlijst; then
+            echo "::error::KEYSTORE_BASE64 bevat geen sleutel 'takenlijst' maar: $aliases. Gebruik de bestanden uit Takenlijst/signing."
+            exit 1
+          fi
+
       - name: Tests draaien
         run: gradle testDebugUnitTest --stacktrace
 
