@@ -23,6 +23,10 @@ import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.domain.Aisle
 import nl.wdhertog.takenlijst.domain.ListParser
 import nl.wdhertog.takenlijst.domain.ParsedItem
+import nl.wdhertog.takenlijst.models.Model
+import nl.wdhertog.takenlijst.models.ModelManager
+import nl.wdhertog.takenlijst.voice.SAMPLE_RATE
+import nl.wdhertog.takenlijst.voice.VoiceRecorder
 import java.time.LocalDate
 
 data class TodayState(
@@ -40,8 +44,9 @@ data class ScanRow(val key: Int, val name: String, val quantity: String, val sel
 
 sealed interface ScanState {
     data object Idle : ScanState
-    data object Working : ScanState
-    data class Result(val rows: List<ScanRow>) : ScanState
+    data object Recording : ScanState
+    data class Working(val message: String) : ScanState
+    data class Result(val rows: List<ScanRow>, val heard: String? = null) : ScanState
     data class Failed(val message: String) : ScanState
 }
 
@@ -49,6 +54,7 @@ sealed interface ScanState {
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val app = TakenApp.from(application)
     private val repo = app.repository
+    private val prefs = application.getSharedPreferences("instellingen", android.content.Context.MODE_PRIVATE)
 
     private val today = MutableStateFlow(LocalDate.now())
     val groupFilter = MutableStateFlow<TaskGroup?>(null)
@@ -62,13 +68,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         repo.allTasks, today.flatMapLatest { repo.doneOn(it) }, today, groupFilter,
     ) { all, done, day, filter ->
         val visible = if (filter == null) all else all.filter { it.group == filter }
-        val dated = visible.filter { it.nextDue != null }.sortedWith(compareBy({ it.nextDue }, { it.reminderMinutes ?: Int.MAX_VALUE }))
+        val dated = visible.filter { it.nextDue != null }.sortedWith(compareBy({ it.nextDue }, { it.nextSlotTime ?: Int.MAX_VALUE }))
+        val dueToday = dated.filter { it.nextDue == day }.map { it.id }.toSet()
+        // Een taak van meerdere keren per dag staat pas bij "gedaan" als alle keren gedaan zijn, en dan één keer.
+        val finished = (if (filter == null) done else done.filter { it.group == filter })
+            .filter { it.taskId !in dueToday }
+            .associateBy { it.taskId }.values.toList()
         TodayState(
             loaded = true,
             hasTasks = all.isNotEmpty(),
             late = dated.filter { it.nextDue!!.isBefore(day) },
             due = dated.filter { it.nextDue == day },
-            done = if (filter == null) done else done.filter { it.group == filter },
+            done = finished,
             upcoming = dated.filter { it.nextDue!!.isAfter(day) && !it.nextDue.isAfter(day.plusDays(7)) },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TodayState())
@@ -101,20 +112,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteShopping(item: ShoppingItem) = viewModelScope.launch { repo.deleteShopping(item) }
     suspend fun finishShopping(): Boolean = repo.finishShopping(today.value)
 
-    // --- Foto uitlezen ---
+    // --- Foto uitlezen en inspreken ---
 
     private val _scan = MutableStateFlow<ScanState>(ScanState.Idle)
     val scan = _scan.asStateFlow()
+    val recorder = VoiceRecorder()
+
+    /** Handschrift (TrOCR) of gedrukte tekst (Tesseract); de keuze wordt onthouden. */
+    val handwriting = MutableStateFlow(prefs.getBoolean("handschrift", true))
+
+    fun setHandwriting(on: Boolean) {
+        handwriting.value = on
+        prefs.edit().putBoolean("handschrift", on).apply()
+    }
 
     fun startScan(uri: Uri) = viewModelScope.launch {
-        _scan.value = ScanState.Working
-        _scan.value = runCatching { app.ocr.recognize(uri) }.fold(
+        val useTrOcr = handwriting.value && ModelManager.isDownloaded(app, Model.HANDWRITING)
+        _scan.value = ScanState.Working("Tekst herkennen…")
+        _scan.value = runCatching { app.ocr.recognize(uri, useTrOcr) }.fold(
             onSuccess = { lines ->
+                val lexicon = if (useTrOcr) app.lexicon(shopping.value.map { it.name }) else null
                 val rows = lines.mapNotNull { line ->
                     ListParser.parseLine(line.text)?.let { item ->
-                        // Lage zekerheid of een afgebroken woord ("hagelsl.") laten controleren.
-                        val doubtful = line.confidence < 70f || line.text.trim().endsWith(".")
-                        ScanRow(0, item.name, item.quantity, selected = true, uncertain = doubtful, seen = line.text.trim())
+                        val name = lexicon?.correct(item.name)
+                        val quantity = lexicon?.correct(item.quantity)?.text ?: item.quantity
+                        // Lage zekerheid, een gecorrigeerd woord of een afgebroken woord ("hagelsl.") laten controleren.
+                        val threshold = if (useTrOcr) 40f else 70f
+                        val doubtful = line.confidence < threshold || name?.changed == true || line.text.trim().endsWith(".")
+                        val finalName = (name?.text ?: item.name).replaceFirstChar { it.uppercase() }
+                        ScanRow(0, finalName, quantity, selected = true, uncertain = doubtful, seen = line.text.trim())
                     }
                 }.mapIndexed { i, r -> r.copy(key = i) }
                 if (rows.isEmpty()) ScanState.Failed("Er is geen tekst gevonden. Probeer een scherpere foto met meer licht.")
@@ -123,6 +149,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             onFailure = { ScanState.Failed(it.message ?: "Uitlezen is mislukt") },
         )
     }
+
+    fun startRecording() = viewModelScope.launch {
+        _scan.value = ScanState.Recording
+        val samples = runCatching { recorder.record() }.getOrElse {
+            _scan.value = ScanState.Failed(it.message ?: "Opnemen is mislukt")
+            return@launch
+        }
+        if (samples.size < SAMPLE_RATE / 2) {
+            _scan.value = ScanState.Idle
+            return@launch
+        }
+        _scan.value = ScanState.Working("Uitschrijven…")
+        _scan.value = runCatching { app.speech.transcribe(samples) }.fold(
+            onSuccess = { text ->
+                val rows = ListParser.parseSpoken(text).mapIndexed { i, item ->
+                    ScanRow(i, item.name, item.quantity, selected = true, uncertain = false, seen = "")
+                }
+                if (rows.isEmpty()) ScanState.Failed("Ik heb geen producten verstaan. Probeer het nog eens, bijvoorbeeld: “melk, twee pakken yoghurt en appels”.")
+                else ScanState.Result(rows, heard = text)
+            },
+            onFailure = { ScanState.Failed(it.message ?: "Uitschrijven is mislukt") },
+        )
+    }
+
+    fun stopRecording() = recorder.stop()
 
     fun editScanRow(row: ScanRow) = _scan.update { s ->
         if (s is ScanState.Result) s.copy(rows = s.rows.map { if (it.key == row.key) row else it }) else s

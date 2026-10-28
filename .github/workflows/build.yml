@@ -23,6 +23,9 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      - name: whisper.cpp ophalen
+        run: git clone --depth 1 --branch v1.7.6 https://github.com/ggml-org/whisper.cpp third_party/whisper.cpp
+
       - name: Ondertekeningssleutel klaarzetten
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}

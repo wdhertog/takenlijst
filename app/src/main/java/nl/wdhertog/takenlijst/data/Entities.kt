@@ -1,5 +1,6 @@
 package nl.wdhertog.takenlijst.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -33,8 +34,26 @@ data class Task(
     /** Opent de boodschappenlijst en wordt afgevinkt als je klaar bent met winkelen. */
     val linkShopping: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Hoe vaak de taak op een dag moet gebeuren (honden uitlaten: 3). */
+    @ColumnInfo(defaultValue = "1") val timesPerDay: Int = 1,
+    /** Tijdstip per keer in minuten na middernacht, kommagescheiden; alleen bij [timesPerDay] > 1. */
+    @ColumnInfo(defaultValue = "''") val slotTimes: String = "",
+    /** Hoe vaak de taak op de geplande dag al gedaan is. */
+    @ColumnInfo(defaultValue = "0") val slotsDone: Int = 0,
 ) {
     val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays)
+
+    /** "Dagelijks", of "3× per dag" voor taken die vaker op een dag gebeuren. */
+    fun describeRepeat(): String = when {
+        timesPerDay <= 1 -> repeat.describe()
+        repeatUnit == RepeatUnit.DAY && repeatEvery == 1 -> "${timesPerDay}× per dag"
+        else -> "${repeat.describe()} · ${timesPerDay}× op de dag"
+    }
+
+    val times: List<Int> get() = slotTimes.split(',').mapNotNull { it.trim().toIntOrNull() }
+
+    /** Tijdstip van de eerstvolgende keer die nog moet gebeuren, als dat bekend is. */
+    val nextSlotTime: Int? get() = if (timesPerDay > 1) times.getOrNull(slotsDone) else reminderMinutes
 }
 
 @Entity(
@@ -48,6 +67,8 @@ data class Completion(
     val doneOn: LocalDate,
     /** Geplande datum vóór het afvinken, zodat ongedaan maken hem kan terugzetten. */
     val previousDue: LocalDate?,
+    /** Aantal keer dat de taak die dag al gedaan was, voor ongedaan maken. */
+    @ColumnInfo(defaultValue = "0") val previousSlots: Int = 0,
 )
 
 @Entity(tableName = "shopping_items")

@@ -1,9 +1,11 @@
 package nl.wdhertog.takenlijst.ui
 
+import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +22,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -35,10 +40,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,18 +57,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.domain.Aisle
+import nl.wdhertog.takenlijst.models.Model
+import nl.wdhertog.takenlijst.models.ModelManager
 import nl.wdhertog.takenlijst.ui.theme.App
 import java.io.File
 
+/** Producten toevoegen van een foto ([voice] = false) of door in te spreken ([voice] = true). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanScreen(vm: AppViewModel, onDone: () -> Unit) {
+fun ScanScreen(vm: AppViewModel, voice: Boolean, onDone: () -> Unit) {
     val context = LocalContext.current
     val state by vm.scan.collectAsState()
     var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -69,6 +84,9 @@ fun ScanScreen(vm: AppViewModel, onDone: () -> Unit) {
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(vm::startScan)
     }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.startRecording()
+    }
 
     fun takePhoto() {
         val file = File(context.cacheDir, "scan/foto.jpg").apply { parentFile?.mkdirs() }
@@ -77,16 +95,27 @@ fun ScanScreen(vm: AppViewModel, onDone: () -> Unit) {
         camera.launch(uri)
     }
 
+    fun again() {
+        if (voice) {
+            vm.resetScan()
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        } else takePhoto()
+    }
+
     fun close() {
+        vm.stopRecording()
         vm.resetScan()
         onDone()
     }
+
+    // Opname stoppen als het scherm verdwijnt.
+    DisposableEffect(Unit) { onDispose { vm.stopRecording() } }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Lijstje van foto", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
+                title = { Text(if (voice) "Inspreken" else "Lijstje van foto", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
                 navigationIcon = { IconButton(onClick = ::close) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Terug") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -94,60 +123,129 @@ fun ScanScreen(vm: AppViewModel, onDone: () -> Unit) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().imePadding().padding(horizontal = 16.dp)) {
             when (val s = state) {
-                ScanState.Idle -> Intro(onCamera = ::takePhoto, onGallery = {
-                    gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                })
-                ScanState.Working -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ScanState.Idle ->
+                    if (voice) VoiceIntro(onStart = { micPermission.launch(Manifest.permission.RECORD_AUDIO) })
+                    else PhotoIntro(vm, onCamera = ::takePhoto, onGallery = {
+                        gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    })
+                ScanState.Recording -> Listening(vm)
+                is ScanState.Working -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(16.dp))
-                        Text("Tekst herkennen…", style = MaterialTheme.typography.titleMedium)
+                        Text(s.message, style = MaterialTheme.typography.titleMedium)
                         Text("Dit gebeurt op je telefoon", style = MaterialTheme.typography.bodySmall, color = App.colors.muted)
                     }
                 }
                 is ScanState.Failed -> Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(s.message, style = MaterialTheme.typography.bodyLarge)
-                    Button(onClick = ::takePhoto, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Nieuwe foto maken") }
+                    Button(onClick = ::again, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        Text(if (voice) "Opnieuw inspreken" else "Nieuwe foto maken")
+                    }
                     OutlinedButton(onClick = vm::resetScan, modifier = Modifier.fillMaxWidth()) { Text("Terug") }
                 }
-                is ScanState.Result -> Results(s, vm, onAdd = {
+                is ScanState.Result -> Results(s, vm, voice, onAdd = {
                     vm.commitScan()
                     onDone()
-                }, onRetry = ::takePhoto)
+                }, onRetry = ::again)
             }
         }
     }
 }
 
 @Composable
-private fun Intro(onCamera: () -> Unit, onGallery: () -> Unit) {
-    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(
-            Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) { DrawableIcon(R.drawable.ic_camera, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-        Text("Maak een foto van je boodschappenbriefje", style = MaterialTheme.typography.titleLarge)
+private fun PhotoIntro(vm: AppViewModel, onCamera: () -> Unit, onGallery: () -> Unit) {
+    val context = LocalContext.current
+    val handwriting by vm.handwriting.collectAsState()
+    ModelManager.changes.collectAsState().value
+    val ready = !handwriting || ModelManager.isDownloaded(context, Model.HANDWRITING)
+
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Wat staat er op de foto?", style = MaterialTheme.typography.titleLarge)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(selected = handwriting, onClick = { vm.setHandwriting(true) }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Handschrift") }
+            SegmentedButton(selected = !handwriting, onClick = { vm.setHandwriting(false) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Gedrukte tekst") }
+        }
         Text(
-            "De tekst wordt op je telefoon herkend; de foto gaat nergens heen. Gedrukte tekst en duidelijk " +
-                "handschrift werken het best: leg het briefje plat, in goed licht, en houd de telefoon recht erboven.",
+            if (handwriting) "Elke regel wordt gelezen door een model dat op handschrift getraind is; bekende producten worden automatisch verbeterd. " +
+                "Schrijf één product per regel, leg het briefje plat in goed licht en houd de telefoon recht erboven."
+            else "Voor getypte of gedrukte lijstjes, bijvoorbeeld een recept. Snel en zonder extra download.",
             style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
         )
-        Spacer(Modifier.height(4.dp))
-        Button(onClick = onCamera, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
-            DrawableIcon(R.drawable.ic_camera, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
-            Text("  Foto maken", style = MaterialTheme.typography.titleMedium)
-        }
-        OutlinedButton(onClick = onGallery, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
-            DrawableIcon(R.drawable.ic_image, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-            Text("  Kies uit galerij", style = MaterialTheme.typography.titleMedium)
+        if (!ready) {
+            ModelCard(Model.HANDWRITING, "Eenmalig downloaden; daarna werkt het zonder internet. De foto zelf gaat nooit de deur uit.")
+        } else {
+            Button(onClick = onCamera, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
+                DrawableIcon(R.drawable.ic_camera, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                Text("  Foto maken", style = MaterialTheme.typography.titleMedium)
+            }
+            OutlinedButton(onClick = onGallery, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
+                DrawableIcon(R.drawable.ic_image, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Text("  Kies uit galerij", style = MaterialTheme.typography.titleMedium)
+            }
         }
     }
 }
 
 @Composable
-private fun Results(s: ScanState.Result, vm: AppViewModel, onAdd: () -> Unit, onRetry: () -> Unit) {
+private fun VoiceIntro(onStart: () -> Unit) {
+    val context = LocalContext.current
+    ModelManager.changes.collectAsState().value
+    val ready = ModelManager.isDownloaded(context, Model.SPEECH)
+
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Zeg wat je nodig hebt", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Bijvoorbeeld: “melk, twee pakken yoghurt, tien kilo hondenbrokken en appels”. " +
+                "Daarna kun je alles nog nalopen voordat het op de lijst komt.",
+            style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+        )
+        if (!ready) {
+            ModelCard(Model.SPEECH, "Eenmalig downloaden; daarna wordt je stem op je telefoon uitgeschreven, zonder internet.")
+        } else {
+            Spacer(Modifier.height(24.dp))
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Surface(onClick = onStart, shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(120.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        DrawableIcon(R.drawable.ic_mic, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onPrimary, description = "Start inspreken")
+                    }
+                }
+            }
+            Text("Tik om te beginnen", style = MaterialTheme.typography.labelLarge, color = App.colors.muted, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun Listening(vm: AppViewModel) {
+    val level by vm.recorder.level.collectAsState()
+    val scale by animateFloatAsState(1f + level * 0.35f, label = "niveau")
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(contentAlignment = Alignment.Center) {
+            Box(Modifier.size(150.dp).scale(scale).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer))
+            Surface(onClick = vm::stopRecording, shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(120.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.onPrimary))
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("Ik luister…", style = MaterialTheme.typography.titleLarge)
+        Text("Tik op de knop als je klaar bent", style = MaterialTheme.typography.bodyMedium, color = App.colors.muted)
+    }
+}
+
+@Composable
+private fun Results(s: ScanState.Result, vm: AppViewModel, voice: Boolean, onAdd: () -> Unit, onRetry: () -> Unit) {
     val selected = s.rows.count { it.selected && it.name.isNotBlank() }
     Column(Modifier.fillMaxSize()) {
+        if (s.heard != null) {
+            Text(
+                "“${s.heard}”",
+                style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = App.colors.muted,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+            )
+        }
         Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${s.rows.size} GEVONDEN", style = MaterialTheme.typography.labelSmall, color = App.colors.muted, modifier = Modifier.weight(1f))
             Text("Pas aan waar nodig", style = MaterialTheme.typography.labelMedium, color = App.colors.muted)

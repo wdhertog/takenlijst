@@ -6,4 +6,5 @@ app/build/
 *.iml
 local.properties
 signing/
+third_party/
 *.jks

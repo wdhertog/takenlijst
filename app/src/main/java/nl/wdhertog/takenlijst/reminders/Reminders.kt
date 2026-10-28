@@ -46,10 +46,12 @@ object ReminderScheduler {
         scope.launch { reschedule(app) }
     }
 
-    private fun triggerTime(task: Task): LocalDateTime? {
-        val due = task.nextDue ?: return null
-        val minutes = task.reminderMinutes ?: return null
-        return due.atStartOfDay().plusMinutes(minutes.toLong())
+    /** Herinneringsmomenten van een taak; bij meerdere keren per dag één per keer die nog moet. */
+    private fun triggerTimes(task: Task): List<Long> {
+        val due = task.nextDue ?: return emptyList()
+        task.reminderMinutes ?: return emptyList()
+        val minutes = if (task.timesPerDay > 1) task.times.drop(task.slotsDone) else listOfNotNull(task.reminderMinutes)
+        return minutes.map { due.atStartOfDay().plusMinutes(it.toLong()).millis() }
     }
 
     private fun LocalDateTime.millis() = atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -60,7 +62,7 @@ object ReminderScheduler {
         if (!prefs.contains(LAST_CHECK)) prefs.edit().putLong(LAST_CHECK, now).apply()
 
         val tasks = TakenApp.from(context).repository.let { repo -> repo.allTasksOnce() }
-        val next = tasks.mapNotNull { triggerTime(it)?.millis() }.filter { it > now }.minOrNull()
+        val next = tasks.flatMap(::triggerTimes).filter { it > now }.minOrNull()
 
         val alarm = context.getSystemService(AlarmManager::class.java)
         val pending = PendingIntent.getBroadcast(
@@ -77,7 +79,7 @@ object ReminderScheduler {
         val now = System.currentTimeMillis()
         val since = prefs.getLong(LAST_CHECK, now)
         val tasks = TakenApp.from(context).repository.allTasksOnce()
-        tasks.filter { t -> triggerTime(t)?.millis()?.let { it in (since + 1)..now } == true }
+        tasks.filter { t -> triggerTimes(t).any { it in (since + 1)..now } }
             .forEach { notify(context, it) }
         prefs.edit().putLong(LAST_CHECK, now).apply()
         reschedule(context)
@@ -100,8 +102,8 @@ object ReminderScheduler {
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFF2F6B4F.toInt())
-            .setContentTitle(task.title)
-            .setContentText("${task.group.label} · ${task.repeat.describe()}")
+            .setContentTitle(if (task.timesPerDay > 1) "${task.title} (${task.slotsDone + 1} van ${task.timesPerDay})" else task.title)
+            .setContentText("${task.group.label} · ${task.describeRepeat()}")
             .setContentIntent(open)
             .setAutoCancel(true)
             .addAction(0, "Gedaan", done)

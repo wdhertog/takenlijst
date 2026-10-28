@@ -40,8 +40,16 @@ class Repository(
     suspend fun complete(taskId: Long, today: LocalDate = LocalDate.now()): Long? {
         val id = db.withTransaction {
             val task = tasks.get(taskId) ?: return@withTransaction null
-            val id = tasks.insertCompletion(Completion(taskId = task.id, doneOn = today, previousDue = task.nextDue))
-            tasks.update(task.copy(nextDue = Recurrence.next(task.repeat, task.nextDue, today, task.fromCompletion)))
+            val id = tasks.insertCompletion(Completion(taskId = task.id, doneOn = today, previousDue = task.nextDue, previousSlots = task.slotsDone))
+            val due = task.nextDue
+            // Te laat met een taak van meerdere keren per dag: de oude keren tellen niet meer, we beginnen vandaag.
+            val overdue = due != null && due.isBefore(today)
+            val doneSoFar = if (overdue) 0 else task.slotsDone
+            if (task.timesPerDay > 1 && due != null && !due.isAfter(today) && doneSoFar + 1 < task.timesPerDay) {
+                tasks.update(task.copy(nextDue = today, slotsDone = doneSoFar + 1))
+            } else {
+                tasks.update(task.copy(nextDue = Recurrence.next(task.repeat, due, today, task.fromCompletion), slotsDone = 0))
+            }
             id
         }
         onTasksChanged()
@@ -51,7 +59,7 @@ class Repository(
     suspend fun undo(completionId: Long) {
         db.withTransaction {
             val c = tasks.completion(completionId) ?: return@withTransaction
-            tasks.get(c.taskId)?.let { tasks.update(it.copy(nextDue = c.previousDue)) }
+            tasks.get(c.taskId)?.let { tasks.update(it.copy(nextDue = c.previousDue, slotsDone = c.previousSlots)) }
             tasks.deleteCompletion(c.id)
         }
         onTasksChanged()
@@ -87,17 +95,18 @@ class Repository(
     suspend fun isEmpty() = tasks.count() == 0
 
     suspend fun addExamples(today: LocalDate = LocalDate.now()) {
-        fun t(title: String, group: TaskGroup, repeat: Repeat, inDays: Long = 0, reminder: Int? = null, shoppingTask: Boolean = false, fromDone: Boolean = false) =
+        fun t(title: String, group: TaskGroup, repeat: Repeat, inDays: Long = 0, reminder: Int? = null, shoppingTask: Boolean = false, fromDone: Boolean = false, times: List<Int> = emptyList()) =
             Task(
                 title = title, group = group,
                 repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
                 nextDue = Recurrence.firstDue(repeat, today.plusDays(inDays)),
                 reminderMinutes = reminder, linkShopping = shoppingTask, fromCompletion = fromDone,
+                timesPerDay = maxOf(1, times.size), slotTimes = times.joinToString(","),
             )
         val saturday = Repeat(RepeatUnit.WEEK, 1, Repeat.bit(DayOfWeek.SATURDAY))
         tasks.insertAll(
             listOf(
-                t("Honden uitlaten", TaskGroup.HOME, Repeat.DAILY, reminder = 7 * 60 + 30),
+                t("Honden uitlaten", TaskGroup.HOME, Repeat.DAILY, reminder = 7 * 60 + 30, times = listOf(7 * 60 + 30, 13 * 60, 21 * 60)),
                 t("Koken", TaskGroup.HOME, Repeat.DAILY),
                 t("Boodschappen doen", TaskGroup.HOME, saturday, shoppingTask = true),
                 t("WC schoonmaken", TaskGroup.HOME, saturday),

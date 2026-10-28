@@ -73,7 +73,7 @@ import nl.wdhertog.takenlijst.ui.theme.App
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding: PaddingValues, onScan: () -> Unit) {
+fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding: PaddingValues, onScan: () -> Unit, onVoice: () -> Unit) {
     val items by vm.shopping.collectAsState()
     val shopMode by vm.shopMode.collectAsState()
     var input by rememberSaveable { mutableStateOf("") }
@@ -125,7 +125,7 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
                 Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = input, onValueChange = { input = it },
-                        placeholder = { Text("Product toevoegen, bijv. 2 melk") },
+                        placeholder = { Text("Product toevoegen") },
                         leadingIcon = { Icon(Icons.Default.Add, null) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
@@ -137,6 +137,10 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
                         ),
                         modifier = Modifier.weight(1f),
                     )
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(onClick = onVoice, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(16.dp)) {
+                        DrawableIcon(R.drawable.ic_mic, tint = MaterialTheme.colorScheme.onPrimary, description = "Boodschappen inspreken")
+                    }
                     Spacer(Modifier.width(8.dp))
                     FilledIconButton(onClick = onScan, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(16.dp)) {
                         DrawableIcon(R.drawable.ic_camera, tint = MaterialTheme.colorScheme.onPrimary, description = "Lijstje van foto lezen")
@@ -152,7 +156,7 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
             if (items.isEmpty()) {
                 item {
                     Text(
-                        "Je lijst is leeg. Typ hierboven een product, of maak een foto van een briefje.",
+                        "Je lijst is leeg. Typ hierboven een product, spreek je boodschappen in of maak een foto van een briefje.",
                         style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
                         modifier = Modifier.padding(top = 24.dp, start = 4.dp),
                     )

@@ -149,8 +149,9 @@ private fun TaskListItem(t: Task, day: java.time.LocalDate, onClick: () -> Unit,
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val detail = buildString {
-                append(t.repeat.describe())
-                t.reminderMinutes?.let { append(" · ").append(minutesLabel(it)) }
+                append(t.describeRepeat())
+                if (t.timesPerDay > 1) t.times.takeIf { it.isNotEmpty() }?.let { append(" · ").append(it.joinToString(", ") { m -> minutesLabel(m) }) }
+                else t.reminderMinutes?.let { append(" · ").append(minutesLabel(it)) }
             }
             Text(detail, style = MaterialTheme.typography.bodySmall, color = App.colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

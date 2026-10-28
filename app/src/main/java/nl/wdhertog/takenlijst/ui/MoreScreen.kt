@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import nl.wdhertog.takenlijst.BuildConfig
+import nl.wdhertog.takenlijst.models.Model
 import nl.wdhertog.takenlijst.ui.theme.App
 
 @Composable
@@ -56,6 +57,10 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
             }) { Text("Meldingsinstellingen openen") }
         }
 
+        SectionHeader("Spraak en handschrift")
+        ModelCard(Model.SPEECH, "Voor het inspreken van boodschappen. Werkt na downloaden zonder internet.", allowDelete = true)
+        ModelCard(Model.HANDWRITING, "Voor het lezen van handgeschreven lijstjes. Werkt na downloaden zonder internet.", allowDelete = true)
+
         Card("Voorbeelden") {
             Text(
                 "Voeg de voorbeeldtaken (honden uitlaten, heg snoeien, kippenvoer…) opnieuw toe.",
@@ -67,9 +72,10 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
         Card("Over deze app") {
             Text(
                 "Takenlijst ${BuildConfig.VERSION_NAME}\n" +
-                    "Alles blijft op je telefoon: de app heeft geen internettoegang.\n\n" +
-                    "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) voor tekstherkenning, " +
-                    "het Nederlandse taalmodel uit tessdata_fast (Apache 2.0) en het lettertype Figtree (SIL Open Font License).",
+                    "Alles blijft op je telefoon. Internet wordt alleen gebruikt om de spraak- en handschriftmodellen eenmalig te downloaden.\n\n" +
+                    "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) met het Nederlandse taalmodel uit tessdata_fast (Apache 2.0), " +
+                    "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), TrOCR van Microsoft (MIT) via ONNX Runtime (MIT), " +
+                    "en het lettertype Figtree (SIL Open Font License).",
                 style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
             )
         }

@@ -66,7 +66,8 @@ fun TodayScreen(
 
     fun complete(task: Task) = scope.launch {
         val id = vm.complete(task.id) ?: return@launch
-        val result = snackbar.showSnackbar("${task.title} afgevinkt", "Ongedaan maken", duration = SnackbarDuration.Short)
+        val label = if (task.timesPerDay > 1 && task.slotsDone + 1 < task.timesPerDay) "${task.title}: ${task.slotsDone + 1} van ${task.timesPerDay}" else "${task.title} afgevinkt"
+        val result = snackbar.showSnackbar(label, "Ongedaan maken", duration = SnackbarDuration.Short)
         if (result == SnackbarResult.ActionPerformed) vm.undo(id)
     }
 
@@ -111,7 +112,7 @@ fun TodayScreen(
             item { SectionHeader("Te laat", color = App.colors.lateFg) }
             items(state.late, key = { "late${it.id}" }) { t ->
                 TaskRow(
-                    t.title, t.group, t.repeat.describe(), checked = false,
+                    t.title, t.group, t.describeRepeat(), checked = false,
                     onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                     late = lateLabel(t.nextDue!!, day),
                     modifier = Modifier.animateItem(),
@@ -149,7 +150,7 @@ fun TodayScreen(
             item { SectionHeader("Binnenkort") }
             items(state.upcoming, key = { "next${it.id}" }) { t ->
                 TaskRow(
-                    t.title, t.group, "${t.repeat.describe()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
+                    t.title, t.group, "${t.describeRepeat()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
                     onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                     modifier = Modifier.animateItem(),
                 )
@@ -159,8 +160,13 @@ fun TodayScreen(
 }
 
 private fun detail(t: Task) = buildString {
-    append(t.repeat.describe())
-    t.reminderMinutes?.let { append(" · ").append(minutesLabel(it)) }
+    if (t.timesPerDay > 1) {
+        append("${t.slotsDone} van ${t.timesPerDay} gedaan")
+        t.nextSlotTime?.let { append(" · volgende ").append(minutesLabel(it)) }
+    } else {
+        append(t.repeat.describe())
+        t.reminderMinutes?.let { append(" · ").append(minutesLabel(it)) }
+    }
 }
 
 @Composable

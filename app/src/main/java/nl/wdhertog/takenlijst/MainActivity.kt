@@ -109,12 +109,14 @@ private fun AppRoot(vm: AppViewModel) {
                 TodayScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") }, onShopping = { go(Tab.SHOPPING) })
             }
             composable(Tab.TASKS.route) { TasksScreen(vm, padding, onEdit = { nav.navigate("bewerk/$it") }) }
-            composable(Tab.SHOPPING.route) { ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("scan") }) }
+            composable(Tab.SHOPPING.route) { ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") }) }
             composable(Tab.MORE.route) { MoreScreen(vm, padding) }
             composable("bewerk/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
                 TaskEditScreen(vm, it.arguments?.getLong("id") ?: 0L, onDone = { nav.popBackStack() })
             }
-            composable("scan") { ScanScreen(vm, onDone = { nav.popBackStack() }) }
+            composable("invoer/{soort}") {
+                ScanScreen(vm, voice = it.arguments?.getString("soort") == "spraak", onDone = { nav.popBackStack() })
+            }
         }
     }
 }

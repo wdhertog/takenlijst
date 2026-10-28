@@ -127,6 +127,9 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
     var fromCompletion by rememberSaveable { mutableStateOf(false) }
     var linkShopping by rememberSaveable { mutableStateOf(false) }
     var note by rememberSaveable { mutableStateOf("") }
+    var timesPerDay by rememberSaveable { mutableIntStateOf(1) }
+    var slotTimes by rememberSaveable { mutableStateOf("") }
+    var pickSlot by remember { mutableStateOf<Int?>(null) }
 
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
@@ -143,6 +146,7 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                 dueEpoch = (t.nextDue ?: today).toEpochDay()
                 reminder = t.reminderMinutes; fromCompletion = t.fromCompletion
                 linkShopping = t.linkShopping; note = t.note
+                timesPerDay = t.timesPerDay; slotTimes = t.slotTimes
             }
             loaded = true
         } else if (taskId != 0L && original == null) {
@@ -167,12 +171,18 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
             else -> null
         }
         val base = original ?: Task(title = "")
+        val count = if (repeat.isOnDemand) 1 else timesPerDay
+        val times = slotList(slotTimes, count)
         vm.save(
             base.copy(
                 title = title.trim(), group = group,
                 repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
-                nextDue = due, reminderMinutes = reminder, fromCompletion = fromCompletion,
-                linkShopping = linkShopping, note = note.trim(),
+                nextDue = due,
+                // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
+                reminderMinutes = if (count > 1 && reminder != null) times.first() else reminder,
+                fromCompletion = fromCompletion, linkShopping = linkShopping, note = note.trim(),
+                timesPerDay = count, slotTimes = if (count > 1) times.joinToString(",") else "",
+                slotsDone = base.slotsDone.coerceAtMost(count - 1),
             )
         )
         onDone()
@@ -259,6 +269,34 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                 }
             }
 
+            if (!currentRepeat().isOnDemand) {
+                Label("Hoe vaak op de dag?")
+                Row(
+                    Modifier.clip(RoundedCornerShape(16.dp)).background(App.colors.card).padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilledIconButton(
+                        onClick = { timesPerDay = (timesPerDay - 1).coerceAtLeast(1); slotTimes = slotList(slotTimes, timesPerDay).joinToString(",") },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) { Text("−", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    Text(
+                        if (timesPerDay == 1) "1 keer" else "$timesPerDay keer",
+                        style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    FilledIconButton(
+                        onClick = { timesPerDay = (timesPerDay + 1).coerceAtMost(8); slotTimes = slotList(slotTimes, timesPerDay).joinToString(",") },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) { Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                }
+                if (timesPerDay > 1) {
+                    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        slotList(slotTimes, timesPerDay).forEachIndexed { i, m ->
+                            Pill("${i + 1}e keer · ${minutesLabel(m)}", false) { pickSlot = i }
+                        }
+                    }
+                }
+            }
+
             if (currentRepeat().unit == RepeatUnit.WEEK) {
                 Label("Op welke dagen? (optioneel)")
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -299,8 +337,12 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                 }
                 SettingRow(
                     R.drawable.ic_bell, "Herinnering",
-                    reminder?.let { "Op de dag zelf om ${minutesLabel(it)}" } ?: "Geen melding",
-                    onClick = { if (reminder != null) pickTime = true },
+                    when {
+                        reminder == null -> "Geen melding"
+                        timesPerDay > 1 && !repeat.isOnDemand -> "Bij elke keer een melding"
+                        else -> "Op de dag zelf om ${minutesLabel(reminder!!)}"
+                    },
+                    onClick = { if (reminder != null && (timesPerDay == 1 || repeat.isOnDemand)) pickTime = true },
                 ) {
                     Switch(checked = reminder != null, onCheckedChange = { on ->
                         reminder = if (on) 9 * 60 else null
@@ -367,6 +409,24 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
         )
     }
 
+    pickSlot?.let { index ->
+        val times = slotList(slotTimes, timesPerDay)
+        val start = times[index]
+        val state = rememberTimePickerState(start / 60, start % 60, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { pickSlot = null },
+            title = { Text("${index + 1}e keer") },
+            confirmButton = {
+                TextButton(onClick = {
+                    slotTimes = times.toMutableList().apply { this[index] = state.hour * 60 + state.minute }.sorted().joinToString(",")
+                    pickSlot = null
+                }) { Text("Kies") }
+            },
+            dismissButton = { TextButton(onClick = { pickSlot = null }) { Text("Annuleren") } },
+            text = { TimePicker(state) },
+        )
+    }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -385,6 +445,15 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
 }
 
 private const val DAY_MS = 86_400_000L
+
+/** Tijden per keer; ontbrekende tijden worden over de dag verdeeld tussen 08:00 en 21:00. */
+private fun slotList(stored: String, count: Int): List<Int> {
+    val existing = stored.split(',').mapNotNull { it.trim().toIntOrNull() }
+    if (existing.size == count) return existing
+    if (count <= 1) return listOf(existing.firstOrNull() ?: (9 * 60))
+    val spread = List(count) { i -> 8 * 60 + i * (13 * 60) / (count - 1) }.map { it / 15 * 15 }
+    return (existing.take(count) + spread.drop(existing.size.coerceAtMost(count))).take(count).sorted()
+}
 
 @Composable
 private fun Label(text: String) {

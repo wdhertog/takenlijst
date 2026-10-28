@@ -10,6 +10,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -68,7 +70,7 @@ interface ShoppingDao {
     fun observeOpenCount(): Flow<Int>
 }
 
-@Database(entities = [Task::class, Completion::class, ShoppingItem::class], version = 1)
+@Database(entities = [Task::class, Completion::class, ShoppingItem::class], version = 2)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tasks(): TaskDao
@@ -76,6 +78,18 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
+
+        /** Versie 2: taken die meerdere keren per dag moeten gebeuren. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN timesPerDay INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN slotTimes TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN slotsDone INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE completions ADD COLUMN previousSlots INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 }

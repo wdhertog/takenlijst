@@ -47,6 +47,8 @@ enum class Aisle(val label: String) {
             ),
         )
 
+        fun keywordList(): List<String> = keywords.flatMap { it.second }
+
         /** Raadt de afdeling op basis van woorden in de productnaam; langste trefwoord wint. */
         fun guess(name: String): Aisle {
             val words = name.lowercase().split(Regex("[^\\p{L}-]+")).filter { it.isNotBlank() }

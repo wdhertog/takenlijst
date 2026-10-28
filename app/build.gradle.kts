@@ -21,7 +21,7 @@ android {
         versionName = "1.0.$buildNumber"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += "arm64-v8a"
         }
     }
 
@@ -44,6 +44,13 @@ android {
         }
     }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -60,7 +67,7 @@ android {
 
     // Het Tesseract-taalbestand is al gecomprimeerd; niet nog eens inpakken.
     androidResources {
-        noCompress += "traineddata"
+        noCompress += listOf("traineddata")
     }
 
     lint {
@@ -90,6 +97,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
 
     testImplementation("junit:junit:4.13.2")
 }
