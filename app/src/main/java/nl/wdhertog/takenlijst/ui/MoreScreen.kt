@@ -118,7 +118,7 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> 
 
         Card("Over deze app") {
             Text(
-                "Takenlijst ${BuildConfig.VERSION_NAME}\n" +
+                "Takenlijst ${BuildConfig.VERSION_NAME} · vrije software onder GPL-3.0\n" +
                     "Alles blijft op je telefoon. Internet wordt alleen gebruikt om het spraakmodel te downloaden en, als je dat aanzet, om barcodes op te zoeken.\n\n" +
                     "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) met het Nederlandse taalmodel uit tessdata_fast (Apache 2.0), " +
                     "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), " +
