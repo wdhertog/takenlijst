@@ -97,7 +97,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
 
     testImplementation("junit:junit:4.13.2")
 }

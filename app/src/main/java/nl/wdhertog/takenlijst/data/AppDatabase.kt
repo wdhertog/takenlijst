@@ -70,7 +70,7 @@ interface ShoppingDao {
     fun observeOpenCount(): Flow<Int>
 }
 
-@Database(entities = [Task::class, Completion::class, ShoppingItem::class], version = 2)
+@Database(entities = [Task::class, Completion::class, ShoppingItem::class], version = 3)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tasks(): TaskDao
@@ -79,7 +79,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         /** Versie 2: taken die meerdere keren per dag moeten gebeuren. */
@@ -89,6 +89,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN slotTimes TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE tasks ADD COLUMN slotsDone INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE completions ADD COLUMN previousSlots INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** Versie 3: zelfgekozen icoon per taak. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN icon TEXT NOT NULL DEFAULT ''")
             }
         }
     }

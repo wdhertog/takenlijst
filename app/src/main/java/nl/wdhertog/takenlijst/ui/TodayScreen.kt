@@ -142,6 +142,7 @@ fun TodayScreen(
                 t.title, t.group, detail(t), checked = false,
                 onCheck = { complete(t) }, onClick = { onEdit(t.id) },
                 modifier = Modifier.animateItem(),
+                progress = if (t.timesPerDay > 1) t.slotsDone / t.timesPerDay.toFloat() else 0f,
                 trailing = { if (t.linkShopping) ShoppingBadge(openShopping, onShopping) },
             )
         }

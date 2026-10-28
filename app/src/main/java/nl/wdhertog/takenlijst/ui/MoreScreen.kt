@@ -57,9 +57,8 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
             }) { Text("Meldingsinstellingen openen") }
         }
 
-        SectionHeader("Spraak en handschrift")
+        SectionHeader("Spraak")
         ModelCard(Model.SPEECH, "Voor het inspreken van boodschappen. Werkt na downloaden zonder internet.", allowDelete = true)
-        ModelCard(Model.HANDWRITING, "Voor het lezen van handgeschreven lijstjes. Werkt na downloaden zonder internet.", allowDelete = true)
 
         Card("Voorbeelden") {
             Text(
@@ -72,9 +71,9 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues) {
         Card("Over deze app") {
             Text(
                 "Takenlijst ${BuildConfig.VERSION_NAME}\n" +
-                    "Alles blijft op je telefoon. Internet wordt alleen gebruikt om de spraak- en handschriftmodellen eenmalig te downloaden.\n\n" +
+                    "Alles blijft op je telefoon. Internet wordt alleen gebruikt om het spraakmodel eenmalig te downloaden.\n\n" +
                     "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) met het Nederlandse taalmodel uit tessdata_fast (Apache 2.0), " +
-                    "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), TrOCR van Microsoft (MIT) via ONNX Runtime (MIT), " +
+                    "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), " +
                     "en het lettertype Figtree (SIL Open Font License).",
                 style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
             )

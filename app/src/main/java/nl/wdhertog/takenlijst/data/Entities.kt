@@ -40,6 +40,8 @@ data class Task(
     @ColumnInfo(defaultValue = "''") val slotTimes: String = "",
     /** Hoe vaak de taak op de geplande dag al gedaan is. */
     @ColumnInfo(defaultValue = "0") val slotsDone: Int = 0,
+    /** Gekozen icoon (zie TaskIcon); leeg = automatisch op basis van de naam. */
+    @ColumnInfo(defaultValue = "''") val icon: String = "",
 ) {
     val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays)
 

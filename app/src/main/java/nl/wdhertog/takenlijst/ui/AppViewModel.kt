@@ -23,8 +23,6 @@ import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.domain.Aisle
 import nl.wdhertog.takenlijst.domain.ListParser
 import nl.wdhertog.takenlijst.domain.ParsedItem
-import nl.wdhertog.takenlijst.models.Model
-import nl.wdhertog.takenlijst.models.ModelManager
 import nl.wdhertog.takenlijst.voice.SAMPLE_RATE
 import nl.wdhertog.takenlijst.voice.VoiceRecorder
 import java.time.LocalDate
@@ -54,7 +52,6 @@ sealed interface ScanState {
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val app = TakenApp.from(application)
     private val repo = app.repository
-    private val prefs = application.getSharedPreferences("instellingen", android.content.Context.MODE_PRIVATE)
 
     private val today = MutableStateFlow(LocalDate.now())
     val groupFilter = MutableStateFlow<TaskGroup?>(null)
@@ -118,29 +115,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val scan = _scan.asStateFlow()
     val recorder = VoiceRecorder()
 
-    /** Handschrift (TrOCR) of gedrukte tekst (Tesseract); de keuze wordt onthouden. */
-    val handwriting = MutableStateFlow(prefs.getBoolean("handschrift", true))
-
-    fun setHandwriting(on: Boolean) {
-        handwriting.value = on
-        prefs.edit().putBoolean("handschrift", on).apply()
-    }
-
     fun startScan(uri: Uri) = viewModelScope.launch {
-        val useTrOcr = handwriting.value && ModelManager.isDownloaded(app, Model.HANDWRITING)
         _scan.value = ScanState.Working("Tekst herkennen…")
-        _scan.value = runCatching { app.ocr.recognize(uri, useTrOcr) }.fold(
+        _scan.value = runCatching { app.ocr.recognize(uri) }.fold(
             onSuccess = { lines ->
-                val lexicon = if (useTrOcr) app.lexicon(shopping.value.map { it.name }) else null
                 val rows = lines.mapNotNull { line ->
                     ListParser.parseLine(line.text)?.let { item ->
-                        val name = lexicon?.correct(item.name)
-                        val quantity = lexicon?.correct(item.quantity)?.text ?: item.quantity
-                        // Lage zekerheid, een gecorrigeerd woord of een afgebroken woord ("hagelsl.") laten controleren.
-                        val threshold = if (useTrOcr) 40f else 70f
-                        val doubtful = line.confidence < threshold || name?.changed == true || line.text.trim().endsWith(".")
-                        val finalName = (name?.text ?: item.name).replaceFirstChar { it.uppercase() }
-                        ScanRow(0, finalName, quantity, selected = true, uncertain = doubtful, seen = line.text.trim())
+                        // Lage zekerheid of een afgebroken woord ("hagelsl.") laten controleren.
+                        val doubtful = line.confidence < 70f || line.text.trim().endsWith(".")
+                        ScanRow(0, item.name, item.quantity, selected = true, uncertain = doubtful, seen = line.text.trim())
                     }
                 }.mapIndexed { i, r -> r.copy(key = i) }
                 if (rows.isEmpty()) ScanState.Failed("Er is geen tekst gevonden. Probeer een scherpere foto met meer licht.")

@@ -18,19 +18,7 @@ enum class Model(val label: String, val sizeMb: Int, val files: List<Pair<String
         "Spraakherkenning (Whisper small)", 190,
         listOf("ggml-small-q5_1.bin" to "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin"),
     ),
-
-    /** Handschrift: TrOCR-small (Microsoft, MIT), als ONNX. */
-    HANDWRITING(
-        "Handschriftherkenning (TrOCR small)", 67,
-        listOf(
-            "trocr-encoder.onnx" to "$TROCR/onnx/encoder_model_quantized.onnx",
-            "trocr-decoder.onnx" to "$TROCR/onnx/decoder_model_quantized.onnx",
-            "trocr-tokenizer.json" to "$TROCR/tokenizer.json",
-        ),
-    );
 }
-
-private const val TROCR = "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/main"
 
 /** Downloadt modellen. Dit is het enige waarvoor de app internet gebruikt. */
 object ModelManager {
@@ -44,6 +32,16 @@ object ModelManager {
 
     fun dir(ctx: Context) = File(ctx.filesDir, "models").apply { mkdirs() }
     fun file(ctx: Context, name: String) = File(dir(ctx), name)
+
+    /** Bestanden van modellen die de app niet meer gebruikt (TrOCR-handschrift, tot build 6). */
+    private val obsolete = setOf("trocr-encoder.onnx", "trocr-decoder.onnx", "trocr-tokenizer.json", "trocr-vocab.txt")
+
+    /** Ruimt achtergebleven bestanden van verwijderde modellen en afgebroken downloads op. */
+    fun cleanUp(ctx: Context) {
+        dir(ctx).listFiles()?.forEach { f ->
+            if (f.name in obsolete || f.name.endsWith(".part") || f.name.endsWith(".tmp")) f.delete()
+        }
+    }
 
     fun isDownloaded(ctx: Context, model: Model) = model.files.all { (name, _) -> file(ctx, name).exists() }
 

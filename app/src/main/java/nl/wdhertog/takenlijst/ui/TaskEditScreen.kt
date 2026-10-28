@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,6 +131,7 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
     var timesPerDay by rememberSaveable { mutableIntStateOf(1) }
     var slotTimes by rememberSaveable { mutableStateOf("") }
     var pickSlot by remember { mutableStateOf<Int?>(null) }
+    var icon by rememberSaveable { mutableStateOf("") }
 
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
@@ -147,6 +149,7 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                 reminder = t.reminderMinutes; fromCompletion = t.fromCompletion
                 linkShopping = t.linkShopping; note = t.note
                 timesPerDay = t.timesPerDay; slotTimes = t.slotTimes
+                icon = t.icon
             }
             loaded = true
         } else if (taskId != 0L && original == null) {
@@ -183,6 +186,7 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                 fromCompletion = fromCompletion, linkShopping = linkShopping, note = note.trim(),
                 timesPerDay = count, slotTimes = if (count > 1) times.joinToString(",") else "",
                 slotsDone = base.slotsDone.coerceAtMost(count - 1),
+                icon = icon,
             )
         )
         onDone()
@@ -241,6 +245,15 @@ fun TaskEditScreen(vm: AppViewModel, taskId: Long, onDone: () -> Unit) {
                             Text(g.label, style = MaterialTheme.typography.labelLarge, color = App.colors.groupFg.getValue(g))
                         }
                     }
+                }
+            }
+
+            Label("Icoon")
+            val guessed = TaskIcon.guess(title)?.drawable ?: group.icon()
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconChoice(guessed, "Automatisch", selected = icon.isEmpty(), group = group, auto = true) { icon = "" }
+                TaskIcon.entries.forEach { choice ->
+                    IconChoice(choice.drawable, choice.label, selected = icon == choice.key, group = group) { icon = choice.key }
                 }
             }
 
@@ -479,6 +492,23 @@ private fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Box(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
             Text(text, style = MaterialTheme.typography.labelLarge, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
         }
+    }
+}
+
+@Composable
+private fun IconChoice(drawable: Int, label: String, selected: Boolean, group: TaskGroup, auto: Boolean = false, onClick: () -> Unit) {
+    val fg = App.colors.groupFg.getValue(group)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            color = if (selected) App.colors.groupBg.getValue(group) else App.colors.card,
+            border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) fg else MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.size(52.dp).semantics { this.selected = selected; contentDescription = label },
+        ) {
+            Box(contentAlignment = Alignment.Center) { DrawableIcon(drawable, Modifier.size(24.dp), tint = fg) }
+        }
+        if (auto) Text("auto", style = MaterialTheme.typography.labelMedium, color = App.colors.muted, modifier = Modifier.padding(top = 2.dp))
     }
 }
 

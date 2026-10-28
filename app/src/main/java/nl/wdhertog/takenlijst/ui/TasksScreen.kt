@@ -145,7 +145,7 @@ private fun TaskListItem(t: Task, day: java.time.LocalDate, onClick: () -> Unit,
         Box(
             Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(App.colors.groupBg.getValue(t.group)),
             contentAlignment = Alignment.Center,
-        ) { DrawableIcon(t.group.icon(), Modifier.size(20.dp), tint = App.colors.groupFg.getValue(t.group)) }
+        ) { DrawableIcon(t.iconRes(), Modifier.size(20.dp), tint = App.colors.groupFg.getValue(t.group)) }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val detail = buildString {

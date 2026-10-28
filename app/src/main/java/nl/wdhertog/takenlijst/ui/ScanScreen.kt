@@ -40,9 +40,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -125,7 +122,7 @@ fun ScanScreen(vm: AppViewModel, voice: Boolean, onDone: () -> Unit) {
             when (val s = state) {
                 ScanState.Idle ->
                     if (voice) VoiceIntro(onStart = { micPermission.launch(Manifest.permission.RECORD_AUDIO) })
-                    else PhotoIntro(vm, onCamera = ::takePhoto, onGallery = {
+                    else PhotoIntro(onCamera = ::takePhoto, onGallery = {
                         gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     })
                 ScanState.Recording -> Listening(vm)
@@ -154,35 +151,25 @@ fun ScanScreen(vm: AppViewModel, voice: Boolean, onDone: () -> Unit) {
 }
 
 @Composable
-private fun PhotoIntro(vm: AppViewModel, onCamera: () -> Unit, onGallery: () -> Unit) {
-    val context = LocalContext.current
-    val handwriting by vm.handwriting.collectAsState()
-    ModelManager.changes.collectAsState().value
-    val ready = !handwriting || ModelManager.isDownloaded(context, Model.HANDWRITING)
-
+private fun PhotoIntro(onCamera: () -> Unit, onGallery: () -> Unit) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Wat staat er op de foto?", style = MaterialTheme.typography.titleLarge)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(selected = handwriting, onClick = { vm.setHandwriting(true) }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Handschrift") }
-            SegmentedButton(selected = !handwriting, onClick = { vm.setHandwriting(false) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Gedrukte tekst") }
-        }
+        Box(
+            Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) { DrawableIcon(R.drawable.ic_camera, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+        Text("Foto van een gedrukt lijstje", style = MaterialTheme.typography.titleLarge)
         Text(
-            if (handwriting) "Elke regel wordt gelezen door een model dat op handschrift getraind is; bekende producten worden automatisch verbeterd. " +
-                "Schrijf één product per regel, leg het briefje plat in goed licht en houd de telefoon recht erboven."
-            else "Voor getypte of gedrukte lijstjes, bijvoorbeeld een recept. Snel en zonder extra download.",
+            "Werkt met getypte of gedrukte tekst, zoals een uitgeprint lijstje of een recept. " +
+                "De tekst wordt op je telefoon herkend; de foto gaat nergens heen. Voor een handgeschreven briefje kun je het beter inspreken.",
             style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
         )
-        if (!ready) {
-            ModelCard(Model.HANDWRITING, "Eenmalig downloaden; daarna werkt het zonder internet. De foto zelf gaat nooit de deur uit.")
-        } else {
-            Button(onClick = onCamera, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
-                DrawableIcon(R.drawable.ic_camera, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
-                Text("  Foto maken", style = MaterialTheme.typography.titleMedium)
-            }
-            OutlinedButton(onClick = onGallery, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
-                DrawableIcon(R.drawable.ic_image, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("  Kies uit galerij", style = MaterialTheme.typography.titleMedium)
-            }
+        Button(onClick = onCamera, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
+            DrawableIcon(R.drawable.ic_camera, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            Text("  Foto maken", style = MaterialTheme.typography.titleMedium)
+        }
+        OutlinedButton(onClick = onGallery, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) {
+            DrawableIcon(R.drawable.ic_image, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Text("  Kies uit galerij", style = MaterialTheme.typography.titleMedium)
         }
     }
 }

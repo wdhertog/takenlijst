@@ -3,7 +3,7 @@
 Een slim takenlijstje: huishoudhulp voor Android met terugkerende taken voor huis, tuin en werk, plus
 een boodschappenlijst die je in de winkel afstreept. Alles blijft op je telefoon en de app gebruikt geen
 Google-diensten, dus hij werkt ook op /e/OS en andere ontgoogelde Android-versies. Internet wordt alleen
-gebruikt om de spraak- en handschriftmodellen eenmalig te downloaden.
+gebruikt om het spraakmodel eenmalig te downloaden.
 
 ## Wat het kan
 
@@ -20,10 +20,9 @@ gebruikt om de spraak- en handschriftmodellen eenmalig te downloaden.
   vinkt de gekoppelde boodschappentaak af.
 - **Inspreken**: zeg "melk, twee pakken yoghurt en appels" en [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
   schrijft het op het toestel uit (Whisper small, ~190 MB eenmalige download).
-- **Lijstje van foto**: handschrift wordt per regel gelezen met [TrOCR](https://huggingface.co/microsoft/trocr-small-handwritten)
-  via ONNX Runtime (~67 MB eenmalige download); bekende producten worden verbeterd ("eleven" → "eieren").
-  Gedrukte tekst gaat via [Tesseract](https://github.com/tesseract-ocr/tesseract). Twijfelgevallen
-  worden oranje gemarkeerd zodat je ze kunt verbeteren.
+- **Lijstje van foto**: gedrukte of getypte lijstjes lezen met [Tesseract](https://github.com/tesseract-ocr/tesseract)
+  op het toestel. Twijfelgevallen worden oranje gemarkeerd zodat je ze kunt verbeteren. Voor
+  handgeschreven lijstjes werkt inspreken beter.
 
 ## Bouwen
 
@@ -43,5 +42,4 @@ gradle testDebugUnitTest assembleDebug
 - Tesseract en [Tesseract4Android](https://github.com/adaptech-cz/Tesseract4Android) — Apache 2.0
 - Nederlands taalmodel uit [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) — Apache 2.0
 - whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT)
-- TrOCR (Microsoft, MIT) en ONNX Runtime (MIT)
 - Lettertype [Figtree](https://github.com/erikdkennedy/figtree) — SIL Open Font License 1.1

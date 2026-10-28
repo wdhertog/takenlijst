@@ -2,6 +2,8 @@ package nl.wdhertog.takenlijst.ui
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -101,10 +105,15 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, color: Color = Ap
     }
 }
 
-/** Ronde afvinkknop met een raakvlak van 48dp. */
+/**
+ * Ronde afvinkknop met een raakvlak van 48dp. [progress] (0..1) vult de cirkel als taartpunt, voor taken
+ * die meerdere keren per dag gebeuren: 2 van 4 gedaan is een halve cirkel.
+ */
 @Composable
-fun CheckCircle(checked: Boolean, label: String, onClick: () -> Unit, ringColor: Color = MaterialTheme.colorScheme.outline) {
+fun CheckCircle(checked: Boolean, label: String, onClick: () -> Unit, ringColor: Color = MaterialTheme.colorScheme.outline, progress: Float = 0f) {
     val fill by animateColorAsState(if (checked) MaterialTheme.colorScheme.primary else Color.Transparent, label = "vink")
+    val partial by animateFloatAsState(if (checked) 0f else progress.coerceIn(0f, 1f), label = "deels")
+    val pie = MaterialTheme.colorScheme.primary
     Box(
         Modifier
             .size(48.dp)
@@ -122,6 +131,13 @@ fun CheckCircle(checked: Boolean, label: String, onClick: () -> Unit, ringColor:
             contentAlignment = Alignment.Center,
         ) {
             if (checked) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+            else if (partial > 0f) Canvas(Modifier.size(24.dp)) {
+                val inset = 4.dp.toPx()
+                drawArc(
+                    pie, startAngle = -90f, sweepAngle = 360f * partial, useCenter = true,
+                    topLeft = Offset(inset, inset), size = Size(size.width - 2 * inset, size.height - 2 * inset),
+                )
+            }
         }
     }
 }
@@ -137,6 +153,7 @@ fun TaskRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     late: String? = null,
+    progress: Float = 0f,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val colors = App.colors
@@ -153,6 +170,7 @@ fun TaskRow(
         CheckCircle(
             checked, if (checked) "Maak ongedaan: $title" else "Afvinken: $title", onCheck,
             ringColor = if (late != null) colors.lateFg else MaterialTheme.colorScheme.outline,
+            progress = progress,
         )
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
