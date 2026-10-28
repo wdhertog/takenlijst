@@ -1,7 +1,5 @@
 package nl.wdhertog.takenlijst.ui
 
-import android.app.Activity
-import android.view.WindowManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -45,7 +43,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -80,13 +76,6 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
     var editing by remember { mutableStateOf<ShoppingItem?>(null) }
     val scope = rememberCoroutineScope()
     val done = items.count { it.checked }
-
-    // In winkelmodus blijft het scherm aan.
-    val activity = LocalContext.current as? Activity
-    DisposableEffect(shopMode) {
-        if (shopMode) activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-    }
 
     fun add() {
         if (input.isNotBlank()) vm.addShopping(input)

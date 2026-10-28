@@ -1,6 +1,11 @@
 package nl.wdhertog.takenlijst
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.net.Uri
+import android.view.WindowManager
+import androidx.activity.SystemBarStyle
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,10 +27,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -58,7 +65,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContent { TakenTheme { AppRoot(vm) } }
+        setContent {
+            val mode by vm.themeMode.collectAsState()
+            val dark = mode.isDark()
+            // Statusbalk en navigatiebalk volgen het gekozen thema, niet alleen dat van de telefoon.
+            DisposableEffect(dark) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            TakenTheme(dark) { AppRoot(vm) }
+        }
     }
 }
 
@@ -82,6 +99,20 @@ private fun AppRoot(vm: AppViewModel) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshDate() }
     val groups by vm.groups.collectAsState()
+
+    // Winkelmodus: scherm blijft aan en staat in portret, tot je de modus weer uitzet.
+    val shopMode by vm.shopMode.collectAsState()
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(shopMode) {
+        if (shopMode) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
 
     fun pickIcon(current: String, title: String, color: Int, allowAuto: Boolean, fallback: String) = nav.navigate(
         "icoon?huidig=${Uri.encode(current)}&naam=${Uri.encode(title)}&kleur=$color&auto=$allowAuto&terugval=${Uri.encode(fallback)}"

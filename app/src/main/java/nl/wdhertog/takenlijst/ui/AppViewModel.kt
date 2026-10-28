@@ -23,6 +23,7 @@ import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.domain.Aisle
 import nl.wdhertog.takenlijst.domain.ListParser
 import nl.wdhertog.takenlijst.domain.ParsedItem
+import nl.wdhertog.takenlijst.ui.theme.ThemeMode
 import nl.wdhertog.takenlijst.voice.SAMPLE_RATE
 import nl.wdhertog.takenlijst.voice.VoiceRecorder
 import java.time.LocalDate
@@ -95,7 +96,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val shopping: StateFlow<List<ShoppingItem>> = repo.shoppingItems.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val openShopping: StateFlow<Int> = repo.openShoppingCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    /** Winkelmodus: grote regels, scherm blijft aan en staat vast in portret. */
     val shopMode = MutableStateFlow(false)
+
+    // --- Instellingen ---
+    private val settings = application.getSharedPreferences("instellingen", android.content.Context.MODE_PRIVATE)
+    val themeMode = MutableStateFlow(
+        ThemeMode.entries.firstOrNull { it.name == settings.getString(KEY_THEME, null) } ?: ThemeMode.SYSTEM
+    )
+
+    fun setThemeMode(mode: ThemeMode) {
+        themeMode.value = mode
+        settings.edit().putString(KEY_THEME, mode.name).apply()
+    }
 
     // --- Taken ---
 
@@ -187,3 +200,5 @@ fun List<ShoppingItem>.byAisle(): List<Pair<Aisle, List<ShoppingItem>>> =
         .map { (aisle, items) -> aisle to items.sortedWith(compareBy({ it.checked }, { it.addedAt })) }
 
 val TodayState.progress get() = if (total == 0) 0f else done.size / total.toFloat()
+
+private const val KEY_THEME = "thema"

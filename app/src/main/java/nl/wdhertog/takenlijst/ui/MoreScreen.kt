@@ -15,10 +15,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -27,7 +33,9 @@ import androidx.core.content.ContextCompat
 import nl.wdhertog.takenlijst.BuildConfig
 import nl.wdhertog.takenlijst.models.Model
 import nl.wdhertog.takenlijst.ui.theme.App
+import nl.wdhertog.takenlijst.ui.theme.ThemeMode
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> Unit) {
     val context = LocalContext.current
@@ -43,6 +51,19 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Meer", style = MaterialTheme.typography.headlineLarge)
+
+        Card("Weergave") {
+            val mode by vm.themeMode.collectAsState()
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                ThemeMode.entries.forEachIndexed { i, m ->
+                    SegmentedButton(
+                        selected = m == mode,
+                        onClick = { vm.setThemeMode(m) },
+                        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
+                    ) { Text(m.label) }
+                }
+            }
+        }
 
         Card("Meldingen") {
             Text(

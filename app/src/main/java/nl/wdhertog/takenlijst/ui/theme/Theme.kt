@@ -168,9 +168,20 @@ fun groupFg(index: Int): Color = App.colors.palette[index.mod(App.colors.palette
 val TaskGroup.bg: Color @Composable get() = groupBg(color)
 val TaskGroup.fg: Color @Composable get() = groupFg(color)
 
+/** Licht, donker of volgens de instelling van de telefoon. */
+enum class ThemeMode(val label: String) {
+    SYSTEM("Systeem"), LIGHT("Licht"), DARK("Donker");
+
+    @Composable
+    fun isDark(): Boolean = when (this) {
+        SYSTEM -> isSystemInDarkTheme()
+        LIGHT -> false
+        DARK -> true
+    }
+}
+
 @Composable
-fun TakenTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun TakenTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalAppColors provides if (dark) DarkApp else LightApp) {
         MaterialTheme(
             colorScheme = if (dark) DarkScheme else LightScheme,
