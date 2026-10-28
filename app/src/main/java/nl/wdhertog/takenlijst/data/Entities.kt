@@ -110,6 +110,26 @@ data class ShoppingItem(
     val addedAt: Long = System.currentTimeMillis(),
 )
 
+/**
+ * Een eerder gescande barcode, met de namen die de gebruiker koos. Zo hoeft dezelfde barcode
+ * de volgende keer niet opnieuw opgezocht te worden.
+ */
+@Entity(tableName = "products")
+data class Product(
+    @PrimaryKey val barcode: String,
+    /** Precieze naam, bijv. "AH Halfvolle melk 1 L". */
+    val specific: String,
+    /** Ruime naam, bijv. "Melk". */
+    val broad: String,
+    /** Of de ruime naam op het lijstje komt. */
+    val useBroad: Boolean,
+    val aisle: Aisle = Aisle.OTHER,
+    val updatedAt: Long = System.currentTimeMillis(),
+) {
+    /** De naam die op het lijstje komt; valt terug op de andere als de gekozen leeg is. */
+    val chosen get() = (if (useBroad) broad.ifBlank { specific } else specific.ifBlank { broad }).trim()
+}
+
 /** Afgevinkte taak van vandaag, voor de doorgestreepte regels op het Vandaag-scherm. */
 data class DoneToday(
     val completionId: Long,

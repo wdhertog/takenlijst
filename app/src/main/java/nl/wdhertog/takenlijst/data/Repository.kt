@@ -17,6 +17,7 @@ class Repository(
     private val tasks = db.tasks()
     private val shopping = db.shopping()
     private val groupDao = db.groups()
+    private val products = db.products()
 
     val groups = groupDao.observeAll()
     suspend fun groupsOnce() = groupDao.all()
@@ -109,6 +110,17 @@ class Repository(
 
     suspend fun addShopping(items: List<ParsedItem>) {
         shopping.insertAll(items.map { ShoppingItem(name = it.name, quantity = it.quantity, aisle = Aisle.guess(it.name)) })
+    }
+
+    // --- Gescande producten ---
+    suspend fun product(barcode: String): Product? = products.get(barcode)
+    val productCount = products.observeCount()
+    suspend fun forgetProducts() = products.deleteAll()
+
+    /** Zet een gescand product op de lijst en onthoudt de namen en keuze voor de volgende keer. */
+    suspend fun addScannedProduct(product: Product) = db.withTransaction {
+        products.upsert(product)
+        shopping.insert(ShoppingItem(name = product.chosen, aisle = product.aisle))
     }
 
     suspend fun updateShopping(item: ShoppingItem) = shopping.update(item)

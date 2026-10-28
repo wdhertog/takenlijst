@@ -89,17 +89,32 @@ interface ShoppingDao {
     fun observeOpenCount(): Flow<Int>
 }
 
-@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class], version = 4)
+@Dao
+interface ProductDao {
+    @Query("SELECT * FROM products WHERE barcode = :barcode")
+    suspend fun get(barcode: String): Product?
+
+    @Upsert suspend fun upsert(product: Product)
+
+    @Query("SELECT COUNT(*) FROM products")
+    fun observeCount(): Flow<Int>
+
+    @Query("DELETE FROM products")
+    suspend fun deleteAll()
+}
+
+@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class, Product::class], version = 5)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tasks(): TaskDao
     abstract fun shopping(): ShoppingDao
     abstract fun groups(): GroupDao
+    abstract fun products(): ProductDao
 
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = insertDefaultGroups(db)
                 })
@@ -132,6 +147,16 @@ abstract class AppDatabase : RoomDatabase() {
                         "`color` INTEGER NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`id`))"
                 )
                 insertDefaultGroups(db)
+            }
+        }
+
+        /** Versie 5: onthouden gescande barcodes. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `products` (`barcode` TEXT NOT NULL, `specific` TEXT NOT NULL, `broad` TEXT NOT NULL, " +
+                        "`useBroad` INTEGER NOT NULL, `aisle` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`barcode`))"
+                )
             }
         }
 

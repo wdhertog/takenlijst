@@ -47,6 +47,15 @@ enum class Aisle(val label: String) {
             ),
         )
 
+        /**
+         * Of [word] een productsoort is die we kennen: het trefwoord zelf ("melk") of een samenstelling
+         * die erop eindigt ("tijgerbrood", "hondenvoer"). Korte trefwoorden moeten precies kloppen.
+         */
+        fun isProductWord(word: String): Boolean {
+            val w = word.lowercase()
+            return keywords.any { (_, keys) -> keys.any { k -> w == k || (k.length >= 4 && !k.contains(' ') && w.endsWith(k)) } }
+        }
+
         /** Raadt de afdeling op basis van woorden in de productnaam; langste trefwoord wint. */
         fun guess(name: String): Aisle {
             val words = name.lowercase().split(Regex("[^\\p{L}-]+")).filter { it.isNotBlank() }

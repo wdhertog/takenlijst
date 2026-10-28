@@ -1,5 +1,8 @@
 package nl.wdhertog.takenlijst.ui
 
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.Row
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -87,6 +90,21 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> 
             OutlinedButton(onClick = onGroups) { Text("Groepen beheren") }
         }
 
+        Card("Barcodes") {
+            val lookup by vm.productLookup.collectAsState()
+            val known by vm.productCount.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Onbekende producten opzoeken via Open Food Facts", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = lookup, onCheckedChange = vm::setProductLookup)
+            }
+            Text(
+                "Alleen het barcodenummer wordt verstuurd. Gescande producten en je keuze tussen ruim en precies " +
+                    "worden op je telefoon onthouden" + if (known > 0) " ($known nu)." else ".",
+                style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+            )
+            if (known > 0) OutlinedButton(onClick = vm::forgetProducts) { Text("Onthouden producten vergeten") }
+        }
+
         SectionHeader("Spraak")
         ModelCard(Model.SPEECH, "Voor het inspreken van boodschappen. Werkt na downloaden zonder internet.", allowDelete = true)
 
@@ -101,9 +119,10 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> 
         Card("Over deze app") {
             Text(
                 "Takenlijst ${BuildConfig.VERSION_NAME}\n" +
-                    "Alles blijft op je telefoon. Internet wordt alleen gebruikt om het spraakmodel eenmalig te downloaden.\n\n" +
+                    "Alles blijft op je telefoon. Internet wordt alleen gebruikt om het spraakmodel te downloaden en, als je dat aanzet, om barcodes op te zoeken.\n\n" +
                     "Gebruikt Tesseract en Tesseract4Android (Apache 2.0) met het Nederlandse taalmodel uit tessdata_fast (Apache 2.0), " +
                     "whisper.cpp (MIT) met het Whisper-model van OpenAI (MIT), " +
+                    "ZXing en zxing-android-embedded (Apache 2.0), productgegevens van Open Food Facts (ODbL), " +
                     "iconen van Lucide (ISC) en het lettertype Figtree (SIL Open Font License).",
                 style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
             )

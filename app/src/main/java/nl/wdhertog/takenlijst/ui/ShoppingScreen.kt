@@ -1,5 +1,10 @@
 package nl.wdhertog.takenlijst.ui
 
+import nl.wdhertog.takenlijst.products.OpenFoodFacts
+import com.journeyapps.barcodescanner.ScanOptions
+import com.journeyapps.barcodescanner.ScanContract
+import androidx.compose.material3.IconButton
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -76,6 +81,19 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
     var editing by remember { mutableStateOf<ShoppingItem?>(null) }
     val scope = rememberCoroutineScope()
     val done = items.count { it.checked }
+    val barcode by vm.barcode.collectAsState()
+
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.takeIf { OpenFoodFacts.isBarcode(it) }?.let(vm::onBarcode)
+    }
+    fun scanBarcode() = scanner.launch(
+        ScanOptions()
+            .setDesiredBarcodeFormats(ScanOptions.EAN_13, ScanOptions.EAN_8, ScanOptions.UPC_A, ScanOptions.UPC_E)
+            .setPrompt("Richt de camera op de barcode")
+            .setBeepEnabled(false)
+            .setOrientationLocked(true)
+            .setCaptureActivity(BarcodeCaptureActivity::class.java)
+    )
 
     fun add() {
         if (input.isNotBlank()) vm.addShopping(input)
@@ -116,6 +134,9 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
                         value = input, onValueChange = { input = it },
                         placeholder = { Text("Product toevoegen") },
                         leadingIcon = { Icon(Icons.Default.Add, null) },
+                        trailingIcon = {
+                            IconButton(onClick = ::scanBarcode) { DrawableIcon(R.drawable.ic_barcode, description = "Barcode scannen") }
+                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { add() }),
@@ -145,7 +166,7 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
             if (items.isEmpty()) {
                 item {
                     Text(
-                        "Je lijst is leeg. Typ hierboven een product, spreek je boodschappen in of maak een foto van een briefje.",
+                        "Je lijst is leeg. Typ hierboven een product, scan een barcode, spreek je boodschappen in of maak een foto van een briefje.",
                         style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
                         modifier = Modifier.padding(top = 24.dp, start = 4.dp),
                     )
@@ -188,6 +209,17 @@ fun ShoppingScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding
             Spacer(Modifier.height(contentPadding.calculateBottomPadding()))
         }
     }
+
+    BarcodeSheet(
+        barcode,
+        onLookup = vm::lookupBarcode,
+        onAdd = { specific, broad, useBroad ->
+            scope.launch {
+                vm.addBarcodeProduct(specific, broad, useBroad)?.let { snackbar.showSnackbar("$it staat op je lijst") }
+            }
+        },
+        onDismiss = vm::closeBarcode,
+    )
 
     editing?.let { item -> EditItemDialog(item, onDismiss = { editing = null }, onSave = { vm.updateShopping(it); editing = null }, onDelete = { vm.deleteShopping(item); editing = null }) }
 }

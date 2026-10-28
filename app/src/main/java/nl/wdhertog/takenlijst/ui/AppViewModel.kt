@@ -17,12 +17,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.wdhertog.takenlijst.TakenApp
 import nl.wdhertog.takenlijst.data.DoneToday
+import nl.wdhertog.takenlijst.data.Product
 import nl.wdhertog.takenlijst.data.ShoppingItem
 import nl.wdhertog.takenlijst.data.Task
 import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.domain.Aisle
 import nl.wdhertog.takenlijst.domain.ListParser
 import nl.wdhertog.takenlijst.domain.ParsedItem
+import nl.wdhertog.takenlijst.domain.ProductNames
+import nl.wdhertog.takenlijst.products.OpenFoodFacts
 import nl.wdhertog.takenlijst.ui.theme.ThemeMode
 import nl.wdhertog.takenlijst.voice.SAMPLE_RATE
 import nl.wdhertog.takenlijst.voice.VoiceRecorder
@@ -47,6 +50,21 @@ sealed interface ScanState {
     data class Working(val message: String) : ScanState
     data class Result(val rows: List<ScanRow>, val heard: String? = null) : ScanState
     data class Failed(val message: String) : ScanState
+}
+
+/** Stand van het toevoegen via een barcode. */
+sealed interface BarcodeState {
+    data object Idle : BarcodeState
+    data class Looking(val barcode: String) : BarcodeState
+    /** Namen kiezen of invullen; [canLookup] als opzoeken nog kan (staat uit of lukte niet). */
+    data class Choose(
+        val barcode: String,
+        val specific: String,
+        val broad: String,
+        val useBroad: Boolean,
+        val note: String,
+        val canLookup: Boolean = false,
+    ) : BarcodeState
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -109,6 +127,74 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         themeMode.value = mode
         settings.edit().putString(KEY_THEME, mode.name).apply()
     }
+
+    /** Onbekende barcodes opzoeken bij Open Food Facts; staat standaard uit. */
+    val productLookup = MutableStateFlow(settings.getBoolean(KEY_LOOKUP, false))
+
+    fun setProductLookup(on: Boolean) {
+        productLookup.value = on
+        settings.edit().putBoolean(KEY_LOOKUP, on).apply()
+    }
+
+    // --- Barcodes ---
+    val barcode = MutableStateFlow<BarcodeState>(BarcodeState.Idle)
+    val productCount: StateFlow<Int> = repo.productCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun onBarcode(code: String) = viewModelScope.launch {
+        val known = repo.product(code)
+        barcode.value = when {
+            known != null -> BarcodeState.Choose(code, known.specific, known.broad, known.useBroad, "Eerder gescand")
+            productLookup.value -> lookup(code)
+            else -> BarcodeState.Choose(
+                code, "", "", useBroad = true, canLookup = true,
+                note = "Nieuwe barcode. Zoek hem op of vul zelf een naam in; de app onthoudt hem voor de volgende keer.",
+            )
+        }
+    }
+
+    /** Opzoeken vanuit het keuzescherm; met [always] gaat het voortaan vanzelf. */
+    fun lookupBarcode(always: Boolean) {
+        val code = (barcode.value as? BarcodeState.Choose)?.barcode ?: return
+        if (always) setProductLookup(true)
+        viewModelScope.launch { barcode.value = lookup(code) }
+    }
+
+    private suspend fun lookup(code: String): BarcodeState.Choose {
+        barcode.value = BarcodeState.Looking(code)
+        return when (val r = OpenFoodFacts.lookup(code)) {
+            is OpenFoodFacts.Lookup.Found -> {
+                val name = r.info.name.ifEmpty { r.info.generic }
+                BarcodeState.Choose(
+                    code,
+                    specific = ProductNames.specific(name, r.info.brands, r.info.quantity),
+                    broad = ProductNames.broad(name, r.info.brands, r.info.generic),
+                    useBroad = true,
+                    note = "Gevonden in Open Food Facts",
+                )
+            }
+            OpenFoodFacts.Lookup.NotFound -> BarcodeState.Choose(
+                code, "", "", useBroad = true,
+                note = "Niet gevonden in Open Food Facts. Vul zelf een naam in; de app onthoudt hem voor de volgende keer.",
+            )
+            OpenFoodFacts.Lookup.Failed -> BarcodeState.Choose(
+                code, "", "", useBroad = true, canLookup = true,
+                note = "Opzoeken lukte niet, misschien is er geen internet. Probeer opnieuw of vul zelf een naam in.",
+            )
+        }
+    }
+
+    /** Zet het product op de lijst, onthoudt de keuze en geeft de naam terug die op de lijst kwam. */
+    suspend fun addBarcodeProduct(specific: String, broad: String, useBroad: Boolean): String? {
+        val code = (barcode.value as? BarcodeState.Choose)?.barcode ?: return null
+        val product = Product(code, specific.trim(), broad.trim(), useBroad, Aisle.guess("${broad.trim()} ${specific.trim()}"))
+        if (product.chosen.isEmpty()) return null
+        repo.addScannedProduct(product)
+        barcode.value = BarcodeState.Idle
+        return product.chosen
+    }
+
+    fun closeBarcode() { barcode.value = BarcodeState.Idle }
+    fun forgetProducts() = viewModelScope.launch { repo.forgetProducts() }
 
     // --- Taken ---
 
@@ -202,3 +288,4 @@ fun List<ShoppingItem>.byAisle(): List<Pair<Aisle, List<ShoppingItem>>> =
 val TodayState.progress get() = if (total == 0) 0f else done.size / total.toFloat()
 
 private const val KEY_THEME = "thema"
+private const val KEY_LOOKUP = "producten_opzoeken"

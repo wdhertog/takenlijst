@@ -1,5 +1,7 @@
 package nl.wdhertog.takenlijst.ui
 
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -85,11 +87,21 @@ fun ScanScreen(vm: AppViewModel, voice: Boolean, onDone: () -> Unit) {
         if (granted) vm.startRecording()
     }
 
-    fun takePhoto() {
+    fun openCamera() {
         val file = File(context.cacheDir, "scan/foto.jpg").apply { parentFile?.mkdirs() }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         photoUri = uri
         camera.launch(uri)
+    }
+
+    // De app heeft cameratoestemming voor de barcodescanner; zolang die niet gegeven is, weigert Android ook de camera-app.
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) openCamera()
+    }
+
+    fun takePhoto() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) openCamera()
+        else cameraPermission.launch(Manifest.permission.CAMERA)
     }
 
     fun again() {

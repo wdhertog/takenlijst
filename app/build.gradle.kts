@@ -18,7 +18,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        versionName = "1.1.$buildNumber"
 
         ndk {
             abiFilters += "arm64-v8a"
@@ -97,6 +97,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     testImplementation("junit:junit:4.13.2")
 }
