@@ -9,7 +9,7 @@ gebruikt om het spraakmodel te downloaden en, als je dat aanzet, om barcodes op 
 ## Installeren
 
 Download de nieuwste APK onder [Releases](https://github.com/wdhertog/takenlijst/releases/latest).
-Releases met een versienummer (v1.1.0) zijn de stabiele versies; *Testversie*-builds verschijnen bij elke
+Releases met een versienummer (v1.2.0) zijn de stabiele versies; *Testversie*-builds verschijnen bij elke
 wijziging.
 
 ## Wat het kan

@@ -19,8 +19,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bij een nieuwe release beide ophogen: 1.1.0 -> 10100, 1.2.3 -> 10203.
-        versionCode = 10100
-        versionName = "1.1.0$versionSuffix"
+        versionCode = 10200
+        versionName = "1.2.0$versionSuffix"
 
         ndk {
             abiFilters += "arm64-v8a"

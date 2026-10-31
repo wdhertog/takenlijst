@@ -1,0 +1,5 @@
+• Postpone tasks: long-press a task and pick tomorrow, Saturday, next week or any day
+• Schedule on-demand tasks for any day, not just today
+• Monthly on a fixed weekday, like the first Saturday or the last Friday of the month
+• Tomorrow button in reminders
+• Swipe left or right to switch between screens

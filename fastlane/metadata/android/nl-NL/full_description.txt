@@ -4,8 +4,10 @@
 <ul>
 <li>Vandaag in één oogopslag: wat te laat is, wat vandaag moet en wat er binnenkort aankomt</li>
 <li>Herhalen per dag, week (op vaste dagen), maand, kwartaal, jaar of op afroep, of plannen vanaf het moment dat je de taak echt deed</li>
+<li>Maandelijks op een vaste weekdag, zoals de eerste zaterdag of de laatste vrijdag van de maand</li>
+<li>Taken uitstellen naar morgen, volgende week of een zelfgekozen dag, en klusjes op afroep op elke dag inplannen</li>
 <li>Meerdere keren per dag, zoals de honden uitlaten om 7:30, 13:00 en 21:00, met een cirkel die per keer voller wordt</li>
-<li>Herinneringen met een knop Gedaan in de melding</li>
+<li>Herinneringen met de knoppen Gedaan en Morgen in de melding</li>
 <li>Tot vijf eigen groepen (bijv. Huis, Tuin, Werk) met naam, kleur en icoon</li>
 <li>Bijna honderd iconen om uit te kiezen, met zoekfunctie</li>
 </ul>
