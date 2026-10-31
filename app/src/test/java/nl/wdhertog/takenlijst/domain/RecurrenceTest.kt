@@ -27,6 +27,12 @@ class RecurrenceTest {
     @Test fun onDemandHasNoNext() =
         assertNull(Recurrence.next(Repeat.ON_DEMAND, wed, wed, false))
 
+    @Test fun onceHasNoScheduleLikeOnDemand() {
+        assertNull(Recurrence.next(Repeat.ONCE, wed, wed, false))
+        assertNull(Recurrence.firstDue(Repeat.ONCE, wed))
+        assertEquals("Eenmalig", Repeat.ONCE.describe())
+    }
+
     @Test fun weeklyOnChosenDays() {
         val monThu = Repeat(RepeatUnit.WEEK, 1, Repeat.bit(DayOfWeek.MONDAY) or Repeat.bit(DayOfWeek.THURSDAY))
         assertEquals(LocalDate.of(2026, 10, 29), Recurrence.next(monThu, wed, wed, false))

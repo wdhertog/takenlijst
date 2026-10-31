@@ -18,7 +18,8 @@ import java.time.LocalDate
 
 @Dao
 interface TaskDao {
-    @Query("SELECT * FROM tasks ORDER BY title COLLATE NOCASE")
+    /** Alle taken behalve afgeronde eenmalige. */
+    @Query("SELECT * FROM tasks WHERE finishedOn IS NULL ORDER BY title COLLATE NOCASE")
     fun observeAll(): Flow<List<Task>>
 
     @Query("SELECT * FROM tasks")
@@ -50,8 +51,21 @@ interface TaskDao {
     @Query("DELETE FROM completions WHERE id = :id")
     suspend fun deleteCompletion(id: Long)
 
-    @Query("SELECT MAX(doneOn) FROM completions WHERE taskId = :taskId")
-    suspend fun lastDone(taskId: Long): LocalDate?
+    @Query(
+        """SELECT c.id AS completionId, t.id AS taskId, c.doneOn, t.title, t."group" AS groupId, t.icon
+           FROM completions c JOIN tasks t ON t.id = c.taskId
+           ORDER BY c.doneOn DESC, c.id DESC"""
+    )
+    fun observeHistory(): Flow<List<HistoryEntry>>
+
+    @Query("SELECT doneOn FROM completions WHERE taskId = :taskId ORDER BY doneOn DESC, id DESC")
+    fun observeDoneDates(taskId: Long): Flow<List<LocalDate>>
+
+    @Query("DELETE FROM completions WHERE taskId = :taskId AND doneOn < :before")
+    suspend fun deleteCompletionsBefore(taskId: Long, before: LocalDate)
+
+    @Query("SELECT COUNT(*) FROM completions WHERE taskId = :taskId")
+    suspend fun completionCount(taskId: Long): Int
 
     @Query("UPDATE tasks SET \"group\" = :to WHERE \"group\" = :from")
     suspend fun moveGroup(from: String, to: String)
@@ -103,7 +117,7 @@ interface ProductDao {
     suspend fun deleteAll()
 }
 
-@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class, Product::class], version = 6)
+@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class, Product::class], version = 7)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tasks(): TaskDao
@@ -114,7 +128,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = insertDefaultGroups(db)
                 })
@@ -164,6 +178,13 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN monthWeek INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** Versie 7: eenmalige taken die na afvinken afgerond zijn. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN finishedOn INTEGER")
             }
         }
 

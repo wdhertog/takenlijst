@@ -51,7 +51,7 @@ import nl.wdhertog.takenlijst.domain.RepeatUnit
 import nl.wdhertog.takenlijst.ui.theme.App
 
 private enum class Bucket(val label: String) {
-    DAILY("Dagelijks"), WEEKLY("Wekelijks"), MONTHLY("Maandelijks"), RARE("Per kwartaal of minder"), ON_DEMAND("Op afroep")
+    DAILY("Dagelijks"), WEEKLY("Wekelijks"), MONTHLY("Maandelijks"), RARE("Per kwartaal of minder"), ON_DEMAND("Op afroep"), ONCE("Eenmalig")
 }
 
 private fun Task.bucket() = when (repeatUnit) {
@@ -60,6 +60,7 @@ private fun Task.bucket() = when (repeatUnit) {
     RepeatUnit.MONTH -> if (repeatEvery < 3) Bucket.MONTHLY else Bucket.RARE
     RepeatUnit.YEAR -> Bucket.RARE
     RepeatUnit.NONE -> Bucket.ON_DEMAND
+    RepeatUnit.ONCE -> Bucket.ONCE
 }
 
 @Composable

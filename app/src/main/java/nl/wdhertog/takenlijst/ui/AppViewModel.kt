@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.wdhertog.takenlijst.TakenApp
 import nl.wdhertog.takenlijst.data.DoneToday
+import nl.wdhertog.takenlijst.data.HistoryEntry
 import nl.wdhertog.takenlijst.data.Product
 import nl.wdhertog.takenlijst.data.ShoppingItem
 import nl.wdhertog.takenlijst.data.Task
@@ -203,7 +204,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun schedule(taskId: Long, day: LocalDate?): Task? = repo.schedule(taskId, day)
     fun restore(before: Task) = viewModelScope.launch { repo.restore(before) }
     suspend fun task(id: Long) = repo.task(id)
-    suspend fun lastDone(id: Long) = repo.lastDone(id)
+    fun doneDates(id: Long) = repo.doneDates(id)
+    fun reopen(taskId: Long) = viewModelScope.launch { repo.reopen(taskId) }
+    suspend fun cleanHistory(taskId: Long, before: LocalDate?) = repo.cleanHistory(taskId, before)
+
+    /** Alle afvinkingen, nieuwste eerst. */
+    val history: StateFlow<List<HistoryEntry>?> = repo.history.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     fun save(task: Task) = viewModelScope.launch { repo.save(task) }
     fun delete(task: Task) = viewModelScope.launch { repo.delete(task) }
     fun addExamples() = viewModelScope.launch { repo.addExamples(today.value) }

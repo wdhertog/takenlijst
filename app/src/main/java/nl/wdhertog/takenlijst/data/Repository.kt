@@ -59,7 +59,8 @@ class Repository(
 
     suspend fun allTasksOnce() = tasks.all()
     suspend fun task(id: Long) = tasks.get(id)
-    suspend fun lastDone(id: Long) = tasks.lastDone(id)
+    val history = tasks.observeHistory()
+    fun doneDates(id: Long) = tasks.observeDoneDates(id)
 
     suspend fun save(task: Task): Long {
         val id = if (task.id == 0L) tasks.insert(task) else task.id.also { tasks.update(task) }
@@ -80,7 +81,9 @@ class Repository(
             // Te laat met een taak van meerdere keren per dag: de oude keren tellen niet meer, we beginnen vandaag.
             val overdue = due != null && due.isBefore(today)
             val doneSoFar = if (overdue) 0 else task.slotsDone
-            if (task.timesPerDay > 1 && due != null && !due.isAfter(today) && doneSoFar + 1 < task.timesPerDay) {
+            if (task.repeat.isOnce) {
+                tasks.update(task.copy(nextDue = null, slotsDone = 0, finishedOn = today))
+            } else if (task.timesPerDay > 1 && due != null && !due.isAfter(today) && doneSoFar + 1 < task.timesPerDay) {
                 tasks.update(task.copy(nextDue = today, slotsDone = doneSoFar + 1))
             } else {
                 tasks.update(task.copy(nextDue = Recurrence.next(task.repeat, due, today, task.fromCompletion), slotsDone = 0))
@@ -94,7 +97,7 @@ class Repository(
     suspend fun undo(completionId: Long) {
         db.withTransaction {
             val c = tasks.completion(completionId) ?: return@withTransaction
-            tasks.get(c.taskId)?.let { tasks.update(it.copy(nextDue = c.previousDue, slotsDone = c.previousSlots)) }
+            tasks.get(c.taskId)?.let { tasks.update(it.copy(nextDue = c.previousDue, slotsDone = c.previousSlots, finishedOn = null)) }
             tasks.deleteCompletion(c.id)
         }
         onTasksChanged()
@@ -119,6 +122,25 @@ class Repository(
     suspend fun restore(before: Task) {
         tasks.get(before.id)?.let { tasks.update(it.copy(nextDue = before.nextDue, slotsDone = before.slotsDone)) }
         onTasksChanged()
+    }
+
+    /** Afgeronde eenmalige taak weer op de lijst zetten, niet ingepland. */
+    suspend fun reopen(taskId: Long) {
+        tasks.get(taskId)?.let { tasks.update(it.copy(finishedOn = null)) }
+        onTasksChanged()
+    }
+
+    /**
+     * Geschiedenis van een taak opschonen: alles van vóór [before] weg (null = alles). Een afgeronde eenmalige
+     * taak zonder geschiedenis is nergens meer te zien en wordt dan helemaal verwijderd; geeft true in dat geval.
+     */
+    suspend fun cleanHistory(taskId: Long, before: LocalDate?): Boolean = db.withTransaction {
+        tasks.deleteCompletionsBefore(taskId, before ?: LocalDate.MAX)
+        val task = tasks.get(taskId)
+        if (task != null && task.finishedOn != null && tasks.completionCount(taskId) == 0) {
+            tasks.delete(task)
+            true
+        } else false
     }
 
     // --- Boodschappen ---

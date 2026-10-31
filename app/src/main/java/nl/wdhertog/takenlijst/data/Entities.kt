@@ -71,6 +71,8 @@ data class Task(
     @ColumnInfo(defaultValue = "''") val icon: String = "",
     /** Bij maandelijks op een weekdag: 1..4 voor de eerste tot vierde, -1 voor de laatste; 0 = vaste datum. */
     @ColumnInfo(defaultValue = "0") val monthWeek: Int = 0,
+    /** Dag waarop een eenmalige taak afgevinkt is; dan staat hij niet meer in de lijsten. */
+    val finishedOn: LocalDate? = null,
 ) {
     val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays, monthWeek)
 
@@ -131,6 +133,16 @@ data class Product(
     /** De naam die op het lijstje komt; valt terug op de andere als de gekozen leeg is. */
     val chosen get() = (if (useBroad) broad.ifBlank { specific } else specific.ifBlank { broad }).trim()
 }
+
+/** Eén afvinking met de taak erbij, voor de geschiedenis. */
+data class HistoryEntry(
+    val completionId: Long,
+    val taskId: Long,
+    val doneOn: LocalDate,
+    val title: String,
+    val groupId: String,
+    val icon: String,
+)
 
 /** Afgevinkte taak van vandaag, voor de doorgestreepte regels op het Vandaag-scherm. */
 data class DoneToday(

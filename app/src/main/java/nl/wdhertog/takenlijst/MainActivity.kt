@@ -51,6 +51,7 @@ import nl.wdhertog.takenlijst.ui.AppViewModel
 import nl.wdhertog.takenlijst.ui.DrawableIcon
 import nl.wdhertog.takenlijst.ui.GroupEditScreen
 import nl.wdhertog.takenlijst.ui.GroupsScreen
+import nl.wdhertog.takenlijst.ui.HistoryScreen
 import nl.wdhertog.takenlijst.ui.IconPickerScreen
 import nl.wdhertog.takenlijst.ui.LocalGroups
 import nl.wdhertog.takenlijst.ui.TaskIcon
@@ -168,9 +169,12 @@ private fun AppRoot(vm: AppViewModel) {
                         Tab.TODAY -> TodayScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") }, onShopping = { go(Tab.SHOPPING) })
                         Tab.TASKS -> TasksScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") })
                         Tab.SHOPPING -> ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") })
-                        Tab.MORE -> MoreScreen(vm, padding, onGroups = { nav.navigate("groepen") })
+                        Tab.MORE -> MoreScreen(vm, padding, onGroups = { nav.navigate("groepen") }, onHistory = { nav.navigate("gedaan") })
                     }
                 }
+            }
+            composable("gedaan") {
+                HistoryScreen(vm, onEdit = { nav.navigate("bewerk/$it") }, onBack = { nav.popBackStack() })
             }
             composable("groepen") {
                 GroupsScreen(vm, onEdit = { id -> nav.navigate("groep/${id ?: "nieuw"}") }, onBack = { nav.popBackStack() })

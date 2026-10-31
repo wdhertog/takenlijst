@@ -35,7 +35,6 @@ import nl.wdhertog.takenlijst.data.Task
 import nl.wdhertog.takenlijst.ui.theme.App
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 /**
@@ -121,9 +120,5 @@ fun CoroutineScope.scheduleWithUndo(vm: AppViewModel, snackbar: SnackbarHostStat
     val result = snackbar.showSnackbar(label, "Ongedaan maken", duration = SnackbarDuration.Short)
     if (result == SnackbarResult.ActionPerformed) vm.restore(before)
 }
-
-/** "morgen" of "zaterdag 7 november". */
-private fun LocalDate.dayLabel(today: LocalDate) =
-    if (ChronoUnit.DAYS.between(today, this) <= 1) relativeLabel(today).lowercase() else longLabel().lowercase()
 
 const val DAY_MS = 86_400_000L
