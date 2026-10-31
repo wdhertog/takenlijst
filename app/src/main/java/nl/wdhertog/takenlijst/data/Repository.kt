@@ -100,9 +100,24 @@ class Repository(
         onTasksChanged()
     }
 
-    /** Taak "op afroep" (of een andere) op een dag zetten. */
-    suspend fun schedule(taskId: Long, day: LocalDate) {
-        tasks.get(taskId)?.let { tasks.update(it.copy(nextDue = day)) }
+    /**
+     * Taak op een andere dag zetten: uitstellen, of een taak "op afroep" inplannen (null = niet meer ingepland).
+     * Geeft de taak van vóór de wijziging terug, zodat [restore] het ongedaan kan maken.
+     */
+    suspend fun schedule(taskId: Long, day: LocalDate?): Task? {
+        val before = db.withTransaction {
+            val task = tasks.get(taskId) ?: return@withTransaction null
+            // Op een andere dag begint een taak van meerdere keren per dag weer bij de eerste keer.
+            tasks.update(task.copy(nextDue = day, slotsDone = if (day == task.nextDue) task.slotsDone else 0))
+            task
+        }
+        onTasksChanged()
+        return before
+    }
+
+    /** Planning terugzetten zoals in [before], na [schedule]. */
+    suspend fun restore(before: Task) {
+        tasks.get(before.id)?.let { tasks.update(it.copy(nextDue = before.nextDue, slotsDone = before.slotsDone)) }
         onTasksChanged()
     }
 
@@ -147,7 +162,7 @@ class Repository(
         fun t(title: String, group: String, repeat: Repeat, inDays: Long = 0, reminder: Int? = null, shoppingTask: Boolean = false, fromDone: Boolean = false, times: List<Int> = emptyList()) =
             Task(
                 title = title, groupId = inGroup(group),
-                repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
+                repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays, monthWeek = repeat.monthWeek,
                 nextDue = Recurrence.firstDue(repeat, today.plusDays(inDays)),
                 reminderMinutes = reminder, linkShopping = shoppingTask, fromCompletion = fromDone,
                 timesPerDay = maxOf(1, times.size), slotTimes = times.joinToString(","),

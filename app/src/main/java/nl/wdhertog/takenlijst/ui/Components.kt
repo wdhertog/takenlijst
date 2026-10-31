@@ -10,7 +10,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -149,7 +151,8 @@ fun CheckCircle(checked: Boolean, label: String, onClick: () -> Unit, ringColor:
     }
 }
 
-/** Eén taakregel zoals op het Vandaag-scherm. */
+/** Eén taakregel zoals op het Vandaag-scherm; lang drukken roept [onLongClick] aan (uitstellen). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskRow(
     title: String,
@@ -163,6 +166,7 @@ fun TaskRow(
     progress: Float = 0f,
     @DrawableRes icon: Int? = null,
     trailing: @Composable (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = App.colors
     Row(
@@ -170,7 +174,7 @@ fun TaskRow(
             .clip(RoundedCornerShape(18.dp))
             .background(colors.card)
             .then(if (late != null) Modifier.border(2.dp, colors.lateRing, RoundedCornerShape(18.dp)) else Modifier)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClick?.let { "Uitstellen" })
             .heightIn(min = 64.dp)
             .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

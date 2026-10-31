@@ -8,10 +8,13 @@ import android.view.WindowManager
 import androidx.activity.SystemBarStyle
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -31,18 +34,19 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import nl.wdhertog.takenlijst.ui.AppViewModel
 import nl.wdhertog.takenlijst.ui.DrawableIcon
 import nl.wdhertog.takenlijst.ui.GroupEditScreen
@@ -82,12 +86,15 @@ class MainActivity : ComponentActivity() {
 /** Sleutel waarmee de iconenkiezer zijn keuze teruggeeft aan de taakeditor. */
 private const val PICKED_ICON = "gekozen_icoon"
 
-private enum class Tab(val route: String, val label: String, val icon: Int) {
-    TODAY("vandaag", "Vandaag", R.drawable.ic_sun),
-    TASKS("taken", "Taken", R.drawable.ic_list),
-    SHOPPING("boodschappen", "Boodschappen", R.drawable.ic_cart),
-    MORE("meer", "Meer", R.drawable.ic_grid),
+/** De tabbladen; ze staan naast elkaar in één pager, zodat je ertussen kunt swipen. */
+private enum class Tab(val label: String, val icon: Int) {
+    TODAY("Vandaag", R.drawable.ic_sun),
+    TASKS("Taken", R.drawable.ic_list),
+    SHOPPING("Boodschappen", R.drawable.ic_cart),
+    MORE("Meer", R.drawable.ic_grid),
 }
+
+private const val TABS = "tabs"
 
 @Composable
 private fun AppRoot(vm: AppViewModel) {
@@ -95,7 +102,9 @@ private fun AppRoot(vm: AppViewModel) {
     val snackbar = remember { SnackbarHostState() }
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
-    val tab = Tab.entries.firstOrNull { it.route == route }
+    val pager = rememberPagerState { Tab.entries.size }
+    val scope = rememberCoroutineScope()
+    val tab = if (route == TABS) Tab.entries[pager.currentPage] else null
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshDate() }
     val groups by vm.groups.collectAsState()
@@ -118,11 +127,10 @@ private fun AppRoot(vm: AppViewModel) {
         "icoon?huidig=${Uri.encode(current)}&naam=${Uri.encode(title)}&kleur=$color&auto=$allowAuto&terugval=${Uri.encode(fallback)}"
     )
 
-    fun go(t: Tab) = nav.navigate(t.route) {
-        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
+    fun go(t: Tab) = scope.launch { pager.animateScrollToPage(t.ordinal) }
+
+    // Terug vanaf een ander tabblad gaat eerst naar Vandaag, net als voorheen.
+    BackHandler(enabled = tab != null && tab != Tab.TODAY) { go(Tab.TODAY) }
 
     CompositionLocalProvider(LocalGroups provides groups) {
     Scaffold(
@@ -152,13 +160,18 @@ private fun AppRoot(vm: AppViewModel) {
             }
         },
     ) { padding ->
-        NavHost(nav, startDestination = Tab.TODAY.route) {
-            composable(Tab.TODAY.route) {
-                TodayScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") }, onShopping = { go(Tab.SHOPPING) })
+        NavHost(nav, startDestination = TABS) {
+            composable(TABS) {
+                // In de winkelmodus niet per ongeluk wegswipen van het lijstje.
+                HorizontalPager(pager, userScrollEnabled = !shopMode, beyondViewportPageCount = 1) { page ->
+                    when (Tab.entries[page]) {
+                        Tab.TODAY -> TodayScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") }, onShopping = { go(Tab.SHOPPING) })
+                        Tab.TASKS -> TasksScreen(vm, snackbar, padding, onEdit = { nav.navigate("bewerk/$it") })
+                        Tab.SHOPPING -> ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") })
+                        Tab.MORE -> MoreScreen(vm, padding, onGroups = { nav.navigate("groepen") })
+                    }
+                }
             }
-            composable(Tab.TASKS.route) { TasksScreen(vm, padding, onEdit = { nav.navigate("bewerk/$it") }) }
-            composable(Tab.SHOPPING.route) { ShoppingScreen(vm, snackbar, padding, onScan = { nav.navigate("invoer/foto") }, onVoice = { nav.navigate("invoer/spraak") }) }
-            composable(Tab.MORE.route) { MoreScreen(vm, padding, onGroups = { nav.navigate("groepen") }) }
             composable("groepen") {
                 GroupsScreen(vm, onEdit = { id -> nav.navigate("groep/${id ?: "nieuw"}") }, onBack = { nav.popBackStack() })
             }

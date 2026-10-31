@@ -24,11 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,8 +63,10 @@ private fun Task.bucket() = when (repeatUnit) {
 }
 
 @Composable
-fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) -> Unit) {
+fun TasksScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding: PaddingValues, onEdit: (Long) -> Unit) {
     val tasks by vm.tasks.collectAsState()
+    val scope = rememberCoroutineScope()
+    var scheduling by remember { mutableStateOf<Task?>(null) }
     val day by vm.currentDate.collectAsState()
     val groups = LocalGroups.current
     var groupId by rememberSaveable { mutableStateOf(groups.firstOrNull()?.id ?: TaskGroup.HOME) }
@@ -135,11 +140,18 @@ fun TasksScreen(vm: AppViewModel, contentPadding: PaddingValues, onEdit: (Long) 
                 Column(Modifier.clip(RoundedCornerShape(18.dp)).background(App.colors.card)) {
                     list.forEachIndexed { i, t ->
                         if (i > 0) HorizontalDivider(color = App.colors.line)
-                        TaskListItem(t, group, day, onClick = { onEdit(t.id) }, onSchedule = { vm.schedule(t.id) })
+                        TaskListItem(t, group, day, onClick = { onEdit(t.id) }, onSchedule = { scheduling = t })
                     }
                 }
             }
         }
+    }
+
+    scheduling?.let { t ->
+        ScheduleSheet(t, day, onDismiss = { scheduling = null }, onPick = { picked ->
+            scheduling = null
+            scope.scheduleWithUndo(vm, snackbar, t, picked, day)
+        })
     }
 }
 
@@ -168,7 +180,7 @@ private fun TaskListItem(t: Task, group: TaskGroup, day: java.time.LocalDate, on
         }
         val due = t.nextDue
         when {
-            due == null -> OutlinedButton(onClick = onSchedule, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("Vandaag") }
+            due == null -> OutlinedButton(onClick = onSchedule, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("Inplannen") }
             due.isBefore(day) -> Text(lateLabel(due, day), style = MaterialTheme.typography.labelLarge, color = App.colors.lateFg)
             else -> Text(due.relativeLabel(day), style = MaterialTheme.typography.labelLarge)
         }

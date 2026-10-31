@@ -137,6 +137,10 @@ fun TaskEditScreen(
     var customUnit by rememberSaveable { mutableStateOf(RepeatUnit.WEEK) }
     var customEvery by rememberSaveable { mutableIntStateOf(2) }
     var weekdays by rememberSaveable { mutableIntStateOf(0) }
+    /** Maandelijks op een weekdag: 1..4 of -1 (laatste); 0 = op een vaste datum. */
+    var monthWeek by rememberSaveable { mutableIntStateOf(0) }
+    /** Bij "op afroep": de dag waarop de taak ingepland is, of null. */
+    var scheduledEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
     var dueEpoch by rememberSaveable { mutableStateOf(LocalDate.now().toEpochDay()) }
     var reminder by rememberSaveable { mutableStateOf<Int?>(null) }
     var fromCompletion by rememberSaveable { mutableStateOf(false) }
@@ -164,8 +168,9 @@ fun TaskEditScreen(
                 title = t.title; groupId = t.groupId
                 preset = presetOf(t.repeat)
                 if (preset == Preset.CUSTOM) { customUnit = t.repeatUnit; customEvery = t.repeatEvery }
-                weekdays = t.weekdays
+                weekdays = t.weekdays; monthWeek = t.monthWeek
                 dueEpoch = (t.nextDue ?: today).toEpochDay()
+                if (t.repeat.isOnDemand) scheduledEpoch = t.nextDue?.toEpochDay()
                 reminder = t.reminderMinutes; fromCompletion = t.fromCompletion
                 linkShopping = t.linkShopping; note = t.note
                 timesPerDay = t.timesPerDay; slotTimes = t.slotTimes
@@ -182,16 +187,29 @@ fun TaskEditScreen(
 
     fun currentRepeat(): Repeat {
         val base = preset.repeat ?: Repeat(customUnit, customEvery.coerceAtLeast(1))
-        return if (base.unit == RepeatUnit.WEEK) base.copy(weekdays = weekdays) else base.copy(weekdays = 0)
+        return when {
+            base.unit == RepeatUnit.WEEK -> base.copy(weekdays = weekdays)
+            base.unit == RepeatUnit.MONTH && monthWeek != 0 && weekdays != 0 ->
+                base.copy(weekdays = Integer.lowestOneBit(weekdays), monthWeek = monthWeek)
+            else -> base.copy(weekdays = 0)
+        }
+    }
+
+    /** Maandelijks op een weekdag aan- of uitzetten; aan begint bij de weekdag van de gekozen datum. */
+    fun setMonthWeekday(on: Boolean) {
+        val picked = LocalDate.ofEpochDay(dueEpoch)
+        monthWeek = if (on) Repeat.monthWeekOf(picked) else 0
+        if (on) weekdays = Repeat.bit(picked.dayOfWeek)
     }
 
     fun save() {
         val repeat = currentRepeat()
         val picked = LocalDate.ofEpochDay(dueEpoch)
         val due = when {
+            // Ongewijzigd laten, zodat een uitgestelde taak niet terugspringt naar zijn vaste dag.
+            !repeat.isOnDemand && original?.repeat == repeat && original?.nextDue == picked -> picked
             !repeat.isOnDemand -> Recurrence.firstDue(repeat, picked)
-            original?.repeat?.isOnDemand == true -> original?.nextDue
-            else -> null
+            else -> scheduledEpoch?.let(LocalDate::ofEpochDay)
         }
         val base = original ?: Task(title = "")
         val count = if (repeat.isOnDemand) 1 else timesPerDay
@@ -199,13 +217,13 @@ fun TaskEditScreen(
         vm.save(
             base.copy(
                 title = title.trim(), groupId = groupId,
-                repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays,
+                repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays, monthWeek = repeat.monthWeek,
                 nextDue = due,
+                slotsDone = if (due == base.nextDue) base.slotsDone.coerceAtMost(count - 1) else 0,
                 // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
                 reminderMinutes = if (count > 1 && reminder != null) times.first() else reminder,
                 fromCompletion = fromCompletion, linkShopping = linkShopping, note = note.trim(),
                 timesPerDay = count, slotTimes = if (count > 1) times.joinToString(",") else "",
-                slotsDone = base.slotsDone.coerceAtMost(count - 1),
                 icon = icon,
             )
         )
@@ -353,22 +371,26 @@ fun TaskEditScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     DayOfWeek.entries.forEach { d ->
                         val bit = Repeat.bit(d)
-                        val on = weekdays and bit != 0
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .clip(CircleShape)
-                                .background(if (on) MaterialTheme.colorScheme.primary else App.colors.card)
-                                .clickable(role = Role.Checkbox) { weekdays = weekdays xor bit }
-                                .semantics { selected = on; contentDescription = d.getDisplayName(java.time.format.TextStyle.FULL, Dutch) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                Repeat.SHORT_DAYS[d.value - 1],
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            )
+                        DayCircle(d, on = weekdays and bit != 0, Modifier.weight(1f)) { weekdays = weekdays xor bit }
+                    }
+                }
+            }
+
+            if (currentRepeat().unit == RepeatUnit.MONTH) {
+                Label("Op welke dag?")
+                val onWeekday = monthWeek != 0
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("Vaste datum", !onWeekday) { setMonthWeekday(false) }
+                    Pill("Vaste weekdag", onWeekday) { setMonthWeekday(true) }
+                }
+                if (onWeekday) {
+                    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Repeat.ORDINALS.forEach { (n, label) -> Pill(label, n == monthWeek) { monthWeek = n } }
+                    }
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DayOfWeek.entries.forEach { d ->
+                            val bit = Repeat.bit(d)
+                            DayCircle(d, on = Integer.lowestOneBit(weekdays) == bit, Modifier.weight(1f)) { weekdays = bit }
                         }
                     }
                 }
@@ -376,6 +398,21 @@ fun TaskEditScreen(
 
             Column(Modifier.padding(top = 22.dp).clip(RoundedCornerShape(18.dp)).background(App.colors.card)) {
                 val repeat = currentRepeat()
+                if (repeat.isOnDemand) {
+                    val scheduled = scheduledEpoch?.let(LocalDate::ofEpochDay)
+                    SettingRow(
+                        R.drawable.ic_calendar, "Ingepland",
+                        if (scheduled == null) "Tik om een dag te kiezen" else "Daarna weer op afroep",
+                        onClick = { scheduled?.let { dueEpoch = it.toEpochDay() }; pickDate = true },
+                    ) {
+                        if (scheduled == null) Text("Niet", style = MaterialTheme.typography.titleSmall, color = App.colors.muted)
+                        else Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(scheduled.relativeLabel(today), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = { scheduledEpoch = null }) { Icon(Icons.Default.Close, "Niet meer inplannen") }
+                        }
+                    }
+                    HorizontalDivider(color = App.colors.line)
+                }
                 if (!repeat.isOnDemand) {
                     val shown = Recurrence.firstDue(repeat, LocalDate.ofEpochDay(dueEpoch))!!
                     SettingRow(
@@ -441,7 +478,10 @@ fun TaskEditScreen(
             onDismissRequest = { pickDate = false },
             confirmButton = {
                 TextButton(onClick = {
-                    state.selectedDateMillis?.let { dueEpoch = it / DAY_MS }
+                    state.selectedDateMillis?.let {
+                        dueEpoch = it / DAY_MS
+                        if (currentRepeat().isOnDemand) scheduledEpoch = dueEpoch
+                    }
                     pickDate = false
                 }) { Text("Kies") }
             },
@@ -495,8 +535,6 @@ fun TaskEditScreen(
     }
 }
 
-private const val DAY_MS = 86_400_000L
-
 /** Tijden per keer; ontbrekende tijden worden over de dag verdeeld tussen 08:00 en 21:00. */
 private fun slotList(stored: String, count: Int): List<Int> {
     val existing = stored.split(',').mapNotNull { it.trim().toIntOrNull() }
@@ -504,6 +542,25 @@ private fun slotList(stored: String, count: Int): List<Int> {
     if (count <= 1) return listOf(existing.firstOrNull() ?: (9 * 60))
     val spread = List(count) { i -> 8 * 60 + i * (13 * 60) / (count - 1) }.map { it / 15 * 15 }
     return (existing.take(count) + spread.drop(existing.size.coerceAtMost(count))).take(count).sorted()
+}
+
+@Composable
+private fun DayCircle(day: DayOfWeek, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(44.dp)
+            .clip(CircleShape)
+            .background(if (on) MaterialTheme.colorScheme.primary else App.colors.card)
+            .clickable(role = Role.Checkbox, onClick = onClick)
+            .semantics { selected = on; contentDescription = day.getDisplayName(java.time.format.TextStyle.FULL, Dutch) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            Repeat.SHORT_DAYS[day.value - 1],
+            style = MaterialTheme.typography.labelLarge,
+            color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 @Composable

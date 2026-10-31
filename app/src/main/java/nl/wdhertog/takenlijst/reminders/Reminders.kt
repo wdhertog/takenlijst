@@ -21,6 +21,7 @@ import nl.wdhertog.takenlijst.MainActivity
 import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.TakenApp
 import nl.wdhertog.takenlijst.data.Task
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -101,6 +102,11 @@ object ReminderScheduler {
             Intent(context, ReminderReceiver::class.java).setAction(ReminderReceiver.ACTION_DONE).putExtra(ReminderReceiver.EXTRA_TASK, task.id),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val tomorrow = PendingIntent.getBroadcast(
+            context, task.id.toInt(),
+            Intent(context, ReminderReceiver::class.java).setAction(ReminderReceiver.ACTION_POSTPONE).putExtra(ReminderReceiver.EXTRA_TASK, task.id),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFF2F6B4F.toInt())
@@ -109,6 +115,7 @@ object ReminderScheduler {
             .setContentIntent(open)
             .setAutoCancel(true)
             .addAction(0, "Gedaan", done)
+            .addAction(0, "Morgen", tomorrow)
             .build()
         NotificationManagerCompat.from(context).notify(task.id.toInt(), notification)
     }
@@ -118,6 +125,7 @@ class ReminderReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_FIRE = "nl.wdhertog.takenlijst.FIRE"
         const val ACTION_DONE = "nl.wdhertog.takenlijst.DONE"
+        const val ACTION_POSTPONE = "nl.wdhertog.takenlijst.POSTPONE"
         const val EXTRA_TASK = "taak"
     }
 
@@ -132,6 +140,13 @@ class ReminderReceiver : BroadcastReceiver() {
                         val id = intent.getLongExtra(EXTRA_TASK, -1)
                         if (id > 0) {
                             TakenApp.from(app).repository.complete(id)
+                            NotificationManagerCompat.from(app).cancel(id.toInt())
+                        }
+                    }
+                    ACTION_POSTPONE -> {
+                        val id = intent.getLongExtra(EXTRA_TASK, -1)
+                        if (id > 0) {
+                            TakenApp.from(app).repository.schedule(id, LocalDate.now().plusDays(1))
                             NotificationManagerCompat.from(app).cancel(id.toInt())
                         }
                     }

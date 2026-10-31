@@ -16,10 +16,15 @@ wijziging.
 
 - **Vandaag**: wat te laat is, wat vandaag moet en wat er binnenkort aankomt; filter per groep.
   Afvinken kan ongedaan gemaakt worden.
+- **Uitstellen**: druk lang op een taak om hem naar morgen, zaterdag, volgende week of een zelfgekozen dag
+  te schuiven. Taken op afroep plan je zo ook in op een andere dag dan vandaag. Vanuit een herinnering kan
+  het met de knop *Morgen*.
+- **Swipen**: veeg naar links of rechts om tussen Vandaag, Taken, Boodschappen en Meer te wisselen.
 - **Groepen**: tot vijf eigen groepen (standaard Huis, Tuin en Werk) met naam, kleur en icoon.
 - **Iconen**: kies per taak uit bijna honderd iconen, met zoekfunctie; anders raadt de app er een.
 - **Herhaling**: dagelijks, wekelijks (eventueel op vaste dagen), maandelijks, per kwartaal, jaarlijks,
-  op afroep of zelf in te stellen ("elke 2 weken"). Met *Plannen vanaf afvinken* telt de volgende keer
+  op afroep of zelf in te stellen ("elke 2 weken"). Maandelijks kan ook op een vaste weekdag, zoals
+  de eerste zaterdag of de laatste vrijdag van de maand. Met *Plannen vanaf afvinken* telt de volgende keer
   vanaf het moment dat je de taak echt deed in plaats van vanaf de geplande datum.
 - **Meerdere keren per dag**: bijvoorbeeld honden uitlaten om 07:30, 13:00 en 21:00; de taak staat op
   Vandaag tot alle keren gedaan zijn.

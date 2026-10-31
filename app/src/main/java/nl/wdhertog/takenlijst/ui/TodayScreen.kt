@@ -34,6 +34,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,7 @@ fun TodayScreen(
     val openShopping by vm.openShopping.collectAsState()
     val groups = LocalGroups.current
     val scope = rememberCoroutineScope()
+    var postpone by remember { mutableStateOf<Task?>(null) }
 
     fun complete(task: Task) = scope.launch {
         val id = vm.complete(task.id) ?: return@launch
@@ -116,7 +120,7 @@ fun TodayScreen(
             items(state.late, key = { "late${it.id}" }) { t ->
                 TaskRow(
                     t.title, groupOf(t.groupId), t.describeRepeat(), checked = false,
-                    onCheck = { complete(t) }, onClick = { onEdit(t.id) },
+                    onCheck = { complete(t) }, onClick = { onEdit(t.id) }, onLongClick = { postpone = t },
                     late = lateLabel(t.nextDue!!, day), icon = t.iconRes(groupOf(t.groupId)),
                     modifier = Modifier.animateItem(),
                 )
@@ -144,7 +148,7 @@ fun TodayScreen(
         items(state.due, key = { "due${it.id}" }) { t ->
             TaskRow(
                 t.title, groupOf(t.groupId), detail(t), checked = false,
-                onCheck = { complete(t) }, onClick = { onEdit(t.id) }, icon = t.iconRes(groupOf(t.groupId)),
+                onCheck = { complete(t) }, onClick = { onEdit(t.id) }, onLongClick = { postpone = t }, icon = t.iconRes(groupOf(t.groupId)),
                 modifier = Modifier.animateItem(),
                 progress = if (t.timesPerDay > 1) t.slotsDone / t.timesPerDay.toFloat() else 0f,
                 trailing = { if (t.linkShopping) ShoppingBadge(openShopping, onShopping) },
@@ -156,11 +160,18 @@ fun TodayScreen(
             items(state.upcoming, key = { "next${it.id}" }) { t ->
                 TaskRow(
                     t.title, groupOf(t.groupId), "${t.describeRepeat()} · ${t.nextDue!!.relativeLabel(day)}", checked = false,
-                    onCheck = { complete(t) }, onClick = { onEdit(t.id) }, icon = t.iconRes(groupOf(t.groupId)),
+                    onCheck = { complete(t) }, onClick = { onEdit(t.id) }, onLongClick = { postpone = t }, icon = t.iconRes(groupOf(t.groupId)),
                     modifier = Modifier.animateItem(),
                 )
             }
         }
+    }
+
+    postpone?.let { t ->
+        ScheduleSheet(t, day, onDismiss = { postpone = null }, onPick = { picked ->
+            postpone = null
+            scope.scheduleWithUndo(vm, snackbar, t, picked, day)
+        })
     }
 }
 

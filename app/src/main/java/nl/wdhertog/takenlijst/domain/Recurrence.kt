@@ -8,11 +8,18 @@ enum class RepeatUnit { NONE, DAY, WEEK, MONTH, YEAR }
 
 /**
  * Hoe vaak een taak terugkomt. [unit] NONE betekent "op afroep".
- * [weekdays] is een bitmasker (maandag = bit 0) en geldt alleen bij WEEK.
+ * [weekdays] is een bitmasker (maandag = bit 0). Bij WEEK zijn het de gekozen dagen; bij MONTH met
+ * [monthWeek] is het één dag: [monthWeek] 1..4 is de eerste tot vierde, -1 de laatste van de maand.
  */
-data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 0) {
+data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 0, val monthWeek: Int = 0) {
 
     val isOnDemand get() = unit == RepeatUnit.NONE
+
+    /** Maandelijks op een vaste weekdag, zoals "eerste zaterdag". */
+    val isMonthWeekday get() = unit == RepeatUnit.MONTH && monthWeek != 0 && weekdays != 0
+
+    /** De weekdag bij [isMonthWeekday]. */
+    val monthDay: DayOfWeek get() = DayOfWeek.of(Integer.numberOfTrailingZeros(weekdays) + 1)
 
     fun describe(): String = when (unit) {
         RepeatUnit.NONE -> "Op afroep"
@@ -21,11 +28,14 @@ data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 
             val base = if (every == 1) "Wekelijks" else "Elke $every weken"
             if (weekdays == 0) base else "$base · ${weekdayLabels(weekdays)}"
         }
-        RepeatUnit.MONTH -> when (every) {
-            1 -> "Maandelijks"
-            3 -> "Per kwartaal"
-            6 -> "Elk half jaar"
-            else -> "Elke $every maanden"
+        RepeatUnit.MONTH -> {
+            val base = when (every) {
+                1 -> "Maandelijks"
+                3 -> "Per kwartaal"
+                6 -> "Elk half jaar"
+                else -> "Elke $every maanden"
+            }
+            if (isMonthWeekday) "$base · ${ORDINALS[monthWeek]} ${DAY_NAMES[monthDay.value - 1]}" else base
         }
         RepeatUnit.YEAR -> if (every == 1) "Jaarlijks" else "Elke $every jaar"
     }
@@ -39,6 +49,12 @@ data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 
         val ON_DEMAND = Repeat(RepeatUnit.NONE)
 
         val SHORT_DAYS = listOf("ma", "di", "wo", "do", "vr", "za", "zo")
+        val DAY_NAMES = listOf("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
+        /** Welke van de maand, voor [monthWeek]; -1 is de laatste. */
+        val ORDINALS = linkedMapOf(1 to "eerste", 2 to "tweede", 3 to "derde", 4 to "vierde", -1 to "laatste")
+
+        /** Welke [day] van de maand het is: 1..4, of -1 voor een vijfde (dat is altijd de laatste). */
+        fun monthWeekOf(day: LocalDate) = ((day.dayOfMonth - 1) / 7 + 1).let { if (it > 4) -1 else it }
 
         fun bit(day: DayOfWeek) = 1 shl (day.value - 1)
 
@@ -55,6 +71,8 @@ object Recurrence {
         repeat.isOnDemand -> null
         repeat.unit == RepeatUnit.WEEK && repeat.weekdays != 0 ->
             if (matches(repeat.weekdays, start)) start else nextWeekday(repeat, start)
+        repeat.isMonthWeekday ->
+            monthWeekday(repeat, start).takeUnless { it.isBefore(start) } ?: monthWeekday(repeat, start.plusMonths(1))
         else -> start
     }
 
@@ -78,10 +96,14 @@ object Recurrence {
             RepeatUnit.NONE -> from
             RepeatUnit.DAY -> from.plusDays(every)
             RepeatUnit.WEEK -> if (repeat.weekdays == 0) from.plusWeeks(every) else nextWeekday(repeat, from)
-            RepeatUnit.MONTH -> from.plusMonths(every)
+            RepeatUnit.MONTH -> if (repeat.isMonthWeekday) monthWeekday(repeat, from.plusMonths(every)) else from.plusMonths(every)
             RepeatUnit.YEAR -> from.plusYears(every)
         }
     }
+
+    /** De gekozen weekdag ("eerste zaterdag") in de maand van [month]. */
+    private fun monthWeekday(repeat: Repeat, month: LocalDate): LocalDate =
+        month.with(TemporalAdjusters.dayOfWeekInMonth(repeat.monthWeek, repeat.monthDay))
 
     private fun matches(mask: Int, date: LocalDate) = mask and Repeat.bit(date.dayOfWeek) != 0
 

@@ -200,7 +200,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun complete(taskId: Long): Long? = repo.complete(taskId, today.value)
     fun undo(completionId: Long) = viewModelScope.launch { repo.undo(completionId) }
-    fun schedule(taskId: Long, day: LocalDate = today.value) = viewModelScope.launch { repo.schedule(taskId, day) }
+    suspend fun schedule(taskId: Long, day: LocalDate?): Task? = repo.schedule(taskId, day)
+    fun restore(before: Task) = viewModelScope.launch { repo.restore(before) }
     suspend fun task(id: Long) = repo.task(id)
     suspend fun lastDone(id: Long) = repo.lastDone(id)
     fun save(task: Task) = viewModelScope.launch { repo.save(task) }

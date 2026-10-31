@@ -69,8 +69,10 @@ data class Task(
     @ColumnInfo(defaultValue = "0") val slotsDone: Int = 0,
     /** Gekozen icoon (zie TaskIcon); leeg = automatisch op basis van de naam. */
     @ColumnInfo(defaultValue = "''") val icon: String = "",
+    /** Bij maandelijks op een weekdag: 1..4 voor de eerste tot vierde, -1 voor de laatste; 0 = vaste datum. */
+    @ColumnInfo(defaultValue = "0") val monthWeek: Int = 0,
 ) {
-    val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays)
+    val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays, monthWeek)
 
     /** "Dagelijks", of "3× per dag" voor taken die vaker op een dag gebeuren. */
     fun describeRepeat(): String = when {
@@ -140,8 +142,9 @@ data class DoneToday(
     val repeatEvery: Int,
     val weekdays: Int,
     val icon: String,
+    val monthWeek: Int,
 ) {
-    val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays)
+    val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays, monthWeek)
 }
 
 class Converters {
