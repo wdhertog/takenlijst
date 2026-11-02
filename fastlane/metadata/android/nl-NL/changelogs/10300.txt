@@ -1,0 +1,4 @@
+• Eenmalige taken: na afvinken verdwijnt de taak uit je lijsten, met ongedaan maken en "Weer op de lijst"
+• Nieuw scherm Gedaan onder Meer: alles wat je afvinkte per dag, met filter per groep
+• In het bewerkscherm zie je de laatste keren dat een taak gedaan is
+• Geschiedenis van een taak opschonen: ouder dan 1 jaar, ouder dan 3 jaar of alles

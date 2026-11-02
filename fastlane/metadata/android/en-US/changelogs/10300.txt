@@ -1,0 +1,4 @@
+• One-off tasks: once ticked off they leave your lists, with undo and "Back on the list"
+• New Done screen under More: everything you ticked off per day, with a group filter
+• The edit screen shows the last times a task was done
+• Clean up a task's history: older than 1 year, older than 3 years or everything
