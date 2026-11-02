@@ -20,6 +20,10 @@ wijziging.
   te schuiven. Taken op afroep plan je zo ook in op een andere dag dan vandaag. Vanuit een herinnering kan
   het met de knop *Morgen*.
 - **Swipen**: veeg naar links of rechts om tussen Vandaag, Taken, Boodschappen en Meer te wisselen.
+- **Eenmalige klusjes**: kies *Eenmalig* en de taak verdwijnt na het afvinken uit je lijsten (ongedaan maken
+  kan nog). Je vindt hem terug onder *Gedaan*.
+- **Gedaan**: onder *Meer* staat alles wat je afvinkte, per dag. In het bewerkscherm van een taak zie je de
+  laatste keren en kun je de geschiedenis opschonen (ouder dan 1 of 3 jaar, of alles).
 - **Groepen**: tot vijf eigen groepen (standaard Huis, Tuin en Werk) met naam, kleur en icoon.
 - **Iconen**: kies per taak uit bijna honderd iconen, met zoekfunctie; anders raadt de app er een.
 - **Herhaling**: dagelijks, wekelijks (eventueel op vaste dagen), maandelijks, per kwartaal, jaarlijks,

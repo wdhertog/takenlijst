@@ -40,7 +40,7 @@ import nl.wdhertog.takenlijst.ui.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> Unit) {
+fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> Unit, onHistory: () -> Unit) {
     val context = LocalContext.current
     val notificationsOff = Build.VERSION.SDK_INT >= 33 &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -54,6 +54,14 @@ fun MoreScreen(vm: AppViewModel, contentPadding: PaddingValues, onGroups: () -> 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Meer", style = MaterialTheme.typography.headlineLarge)
+
+        Card("Gedaan") {
+            Text(
+                "Alles wat je afvinkte, per dag. Opschonen kan per taak, in het bewerkscherm onder Geschiedenis.",
+                style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+            )
+            OutlinedButton(onClick = onHistory) { Text("Bekijk wat je gedaan hebt") }
+        }
 
         Card("Weergave") {
             val mode by vm.themeMode.collectAsState()

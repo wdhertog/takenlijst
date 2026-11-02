@@ -73,6 +73,17 @@ fun LocalDate.relativeLabel(today: LocalDate): String {
     }
 }
 
+/** "Vandaag", "Gisteren" of "Zaterdag 7 november", met jaartal als het een ander jaar is. */
+fun LocalDate.dateLabel(today: LocalDate): String = when (ChronoUnit.DAYS.between(today, this)) {
+    0L -> "Vandaag"
+    1L -> "Morgen"
+    -1L -> "Gisteren"
+    else -> longLabel() + if (year != today.year) " $year" else ""
+}
+
+/** [dateLabel] midden in een zin: "afgerond gisteren", "uitgesteld tot zaterdag 7 november". */
+fun LocalDate.dayLabel(today: LocalDate) = dateLabel(today).lowercase()
+
 fun lateLabel(due: LocalDate, today: LocalDate): String {
     val days = ChronoUnit.DAYS.between(due, today)
     return if (days == 1L) "1 dag te laat" else "$days dagen te laat"

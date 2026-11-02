@@ -4,7 +4,8 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 
-enum class RepeatUnit { NONE, DAY, WEEK, MONTH, YEAR }
+/** NONE is "op afroep", ONCE "eenmalig": beide zonder vast schema, maar ONCE is na afvinken afgerond. */
+enum class RepeatUnit { NONE, DAY, WEEK, MONTH, YEAR, ONCE }
 
 /**
  * Hoe vaak een taak terugkomt. [unit] NONE betekent "op afroep".
@@ -13,7 +14,11 @@ enum class RepeatUnit { NONE, DAY, WEEK, MONTH, YEAR }
  */
 data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 0, val monthWeek: Int = 0) {
 
-    val isOnDemand get() = unit == RepeatUnit.NONE
+    /** Zonder vast schema: op afroep of eenmalig; de taak staat alleen op een dag als je hem inplant. */
+    val isOnDemand get() = unit == RepeatUnit.NONE || unit == RepeatUnit.ONCE
+
+    /** Eenmalig: na afvinken afgerond en uit de lijsten. */
+    val isOnce get() = unit == RepeatUnit.ONCE
 
     /** Maandelijks op een vaste weekdag, zoals "eerste zaterdag". */
     val isMonthWeekday get() = unit == RepeatUnit.MONTH && monthWeek != 0 && weekdays != 0
@@ -23,6 +28,7 @@ data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 
 
     fun describe(): String = when (unit) {
         RepeatUnit.NONE -> "Op afroep"
+        RepeatUnit.ONCE -> "Eenmalig"
         RepeatUnit.DAY -> if (every == 1) "Dagelijks" else "Elke $every dagen"
         RepeatUnit.WEEK -> {
             val base = if (every == 1) "Wekelijks" else "Elke $every weken"
@@ -47,6 +53,7 @@ data class Repeat(val unit: RepeatUnit, val every: Int = 1, val weekdays: Int = 
         val QUARTERLY = Repeat(RepeatUnit.MONTH, 3)
         val YEARLY = Repeat(RepeatUnit.YEAR)
         val ON_DEMAND = Repeat(RepeatUnit.NONE)
+        val ONCE = Repeat(RepeatUnit.ONCE)
 
         val SHORT_DAYS = listOf("ma", "di", "wo", "do", "vr", "za", "zo")
         val DAY_NAMES = listOf("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
@@ -93,7 +100,7 @@ object Recurrence {
     fun step(repeat: Repeat, from: LocalDate): LocalDate {
         val every = repeat.every.coerceAtLeast(1).toLong()
         return when (repeat.unit) {
-            RepeatUnit.NONE -> from
+            RepeatUnit.NONE, RepeatUnit.ONCE -> from
             RepeatUnit.DAY -> from.plusDays(every)
             RepeatUnit.WEEK -> if (repeat.weekdays == 0) from.plusWeeks(every) else nextWeekday(repeat, from)
             RepeatUnit.MONTH -> if (repeat.isMonthWeekday) monthWeekday(repeat, from.plusMonths(every)) else from.plusMonths(every)

@@ -65,6 +65,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,6 +89,7 @@ import nl.wdhertog.takenlijst.domain.RepeatUnit
 import nl.wdhertog.takenlijst.ui.theme.App
 import java.time.DayOfWeek
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 private enum class Preset(val label: String, val repeat: Repeat?) {
     DAILY("Dagelijks", Repeat.DAILY),
@@ -96,11 +98,13 @@ private enum class Preset(val label: String, val repeat: Repeat?) {
     QUARTERLY("Per kwartaal", Repeat.QUARTERLY),
     YEARLY("Jaarlijks", Repeat.YEARLY),
     ON_DEMAND("Op afroep", Repeat.ON_DEMAND),
+    ONCE("Eenmalig", Repeat.ONCE),
     CUSTOM("Aangepast…", null),
 }
 
 private fun presetOf(r: Repeat) = when {
     r.unit == RepeatUnit.NONE -> Preset.ON_DEMAND
+    r.unit == RepeatUnit.ONCE -> Preset.ONCE
     r.every == 1 && r.unit == RepeatUnit.DAY -> Preset.DAILY
     r.every == 1 && r.unit == RepeatUnit.WEEK -> Preset.WEEKLY
     r.every == 1 && r.unit == RepeatUnit.MONTH -> Preset.MONTHLY
@@ -127,7 +131,8 @@ fun TaskEditScreen(
     val today by vm.currentDate.collectAsState()
     var original by remember { mutableStateOf<Task?>(null) }
     var loaded by rememberSaveable { mutableStateOf(taskId == 0L) }
-    var lastDone by remember { mutableStateOf<LocalDate?>(null) }
+    val doneDates by remember(taskId) { vm.doneDates(taskId) }.collectAsState(initial = emptyList())
+    var cleaning by remember { mutableStateOf(false) }
 
     var title by rememberSaveable { mutableStateOf("") }
     val groups = LocalGroups.current
@@ -180,9 +185,9 @@ fun TaskEditScreen(
         } else if (taskId != 0L && original == null) {
             original = vm.task(taskId)
         }
-        if (taskId != 0L) lastDone = vm.lastDone(taskId)
     }
 
+    val scope = rememberCoroutineScope()
     val notifyPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     fun currentRepeat(): Repeat {
@@ -219,6 +224,7 @@ fun TaskEditScreen(
                 title = title.trim(), groupId = groupId,
                 repeatUnit = repeat.unit, repeatEvery = repeat.every, weekdays = repeat.weekdays, monthWeek = repeat.monthWeek,
                 nextDue = due,
+                finishedOn = base.finishedOn.takeIf { repeat.isOnce },
                 slotsDone = if (due == base.nextDue) base.slotsDone.coerceAtMost(count - 1) else 0,
                 // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
                 reminderMinutes = if (count > 1 && reminder != null) times.first() else reminder,
@@ -254,6 +260,17 @@ fun TaskEditScreen(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 32.dp),
         ) {
+            original?.finishedOn?.let { finished ->
+                Row(
+                    Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(App.colors.card)
+                        .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Afgerond ${finished.dayLabel(today)}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { vm.reopen(taskId); onDone() }) { Text("Weer op de lijst") }
+                }
+            }
+
             Label("Wat moet er gebeuren?")
             OutlinedTextField(
                 value = title, onValueChange = { title = it },
@@ -462,12 +479,26 @@ fun TaskEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            lastDone?.let {
-                Text(
-                    "Laatst gedaan: ${it.relativeLabel(today).lowercase()}",
-                    style = MaterialTheme.typography.bodySmall, color = App.colors.muted,
-                    modifier = Modifier.padding(top = 16.dp, start = 4.dp),
-                )
+            if (taskId != 0L) {
+                Label("Geschiedenis")
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(App.colors.card).padding(16.dp)) {
+                    if (doneDates.isEmpty()) {
+                        Text("Nog niet afgevinkt", style = MaterialTheme.typography.bodyMedium, color = App.colors.muted)
+                    } else {
+                        Text(
+                            "${doneDates.size} keer gedaan, het laatst ${doneDates.first().dayLabel(today)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        // Per dag, met het aantal keer als het vaker was (honden uitlaten: 3×).
+                        val perDay = doneDates.groupingBy { it }.eachCount().entries.take(HISTORY_SHOWN)
+                        Text(
+                            perDay.joinToString("\n") { (day, n) -> day.dateLabel(today) + if (n > 1) " · $n×" else "" },
+                            style = MaterialTheme.typography.bodySmall, color = App.colors.muted,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        TextButton(onClick = { cleaning = true }, modifier = Modifier.padding(top = 4.dp)) { Text("Geschiedenis opschonen…") }
+                    }
+                }
             }
         }
     }
@@ -518,6 +549,38 @@ fun TaskEditScreen(
         )
     }
 
+    if (cleaning) {
+        val options = listOf(
+            "Ouder dan 1 jaar" to today.minusYears(1),
+            "Ouder dan 3 jaar" to today.minusYears(3),
+            "Alles" to null,
+        ).map { (label, before) -> Triple(label, before, doneDates.count { before == null || it.isBefore(before) }) }
+        AlertDialog(
+            onDismissRequest = { cleaning = false },
+            title = { Text("Geschiedenis opschonen") },
+            text = {
+                Column {
+                    Text(
+                        if (original?.finishedOn != null) "Welke afvinkingen wil je weghalen? Is alles weg, dan verdwijnt deze afgeronde taak helemaal."
+                        else "Welke afvinkingen wil je weghalen? De taak zelf blijft staan.",
+                        style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+                    )
+                    options.forEach { (label, before, count) ->
+                        TextButton(
+                            enabled = count > 0,
+                            onClick = {
+                                cleaning = false
+                                scope.launch { if (vm.cleanHistory(taskId, before)) onDone() }
+                            },
+                        ) { Text(if (count == 0) "$label (niets)" else "$label ($count)") }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { cleaning = false }) { Text("Annuleren") } },
+        )
+    }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -534,6 +597,9 @@ fun TaskEditScreen(
         )
     }
 }
+
+/** Zoveel dagen geschiedenis staan in het bewerkscherm; de rest staat op het scherm Gedaan. */
+private const val HISTORY_SHOWN = 5
 
 /** Tijden per keer; ontbrekende tijden worden over de dag verdeeld tussen 08:00 en 21:00. */
 private fun slotList(stored: String, count: Int): List<Int> {
