@@ -148,6 +148,7 @@ fun TaskEditScreen(
     var scheduledEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
     var dueEpoch by rememberSaveable { mutableStateOf(LocalDate.now().toEpochDay()) }
     var reminder by rememberSaveable { mutableStateOf<Int?>(null) }
+    var daysBefore by rememberSaveable { mutableIntStateOf(0) }
     var fromCompletion by rememberSaveable { mutableStateOf(false) }
     var linkShopping by rememberSaveable { mutableStateOf(false) }
     var note by rememberSaveable { mutableStateOf("") }
@@ -176,7 +177,7 @@ fun TaskEditScreen(
                 weekdays = t.weekdays; monthWeek = t.monthWeek
                 dueEpoch = (t.nextDue ?: today).toEpochDay()
                 if (t.repeat.isOnDemand) scheduledEpoch = t.nextDue?.toEpochDay()
-                reminder = t.reminderMinutes; fromCompletion = t.fromCompletion
+                reminder = t.reminderMinutes; daysBefore = t.reminderDaysBefore; fromCompletion = t.fromCompletion
                 linkShopping = t.linkShopping; note = t.note
                 timesPerDay = t.timesPerDay; slotTimes = t.slotTimes
                 icon = t.icon
@@ -219,6 +220,10 @@ fun TaskEditScreen(
         val base = original ?: Task(title = "")
         val count = if (repeat.isOnDemand) 1 else timesPerDay
         val times = slotList(slotTimes, count)
+        // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
+        val reminderMinutes = if (count > 1 && reminder != null) times.first() else reminder
+        val before = if (count > 1 || reminder == null) 0 else daysBefore
+        val sameReminder = due == base.nextDue && reminderMinutes == base.reminderMinutes && before == base.reminderDaysBefore
         vm.save(
             base.copy(
                 title = title.trim(), groupId = groupId,
@@ -226,8 +231,9 @@ fun TaskEditScreen(
                 nextDue = due,
                 finishedOn = base.finishedOn.takeIf { repeat.isOnce },
                 slotsDone = if (due == base.nextDue) base.slotsDone.coerceAtMost(count - 1) else 0,
-                // Bij meerdere keren per dag is de herinnering een aan/uit-schakelaar en gelden de tijden per keer.
-                reminderMinutes = if (count > 1 && reminder != null) times.first() else reminder,
+                reminderMinutes = reminderMinutes, reminderDaysBefore = before,
+                // Een "Later" blijft alleen staan als de herinnering zelf niet veranderd is.
+                snoozedUntil = base.snoozedUntil.takeIf { sameReminder },
                 fromCompletion = fromCompletion, linkShopping = linkShopping, note = note.trim(),
                 timesPerDay = count, slotTimes = if (count > 1) times.joinToString(",") else "",
                 icon = icon,
@@ -445,7 +451,7 @@ fun TaskEditScreen(
                     when {
                         reminder == null -> "Geen melding"
                         timesPerDay > 1 && !repeat.isOnDemand -> "Bij elke keer een melding"
-                        else -> "Op de dag zelf om ${minutesLabel(reminder!!)}"
+                        else -> "${daysBeforeLabel(daysBefore)} om ${minutesLabel(reminder!!)}"
                     },
                     onClick = { if (reminder != null && (timesPerDay == 1 || repeat.isOnDemand)) pickTime = true },
                 ) {
@@ -455,6 +461,14 @@ fun TaskEditScreen(
                             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
                         ) notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     })
+                }
+                if (reminder != null && (timesPerDay == 1 || repeat.isOnDemand)) {
+                    FlowRow(
+                        Modifier.padding(start = 64.dp, end = 16.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        DAYS_BEFORE.forEach { n -> Pill(daysBeforeLabel(n), n == daysBefore) { daysBefore = n } }
+                    }
                 }
                 if (!repeat.isOnDemand) {
                     HorizontalDivider(color = App.colors.line)
@@ -600,6 +614,16 @@ fun TaskEditScreen(
 
 /** Zoveel dagen geschiedenis staan in het bewerkscherm; de rest staat op het scherm Gedaan. */
 private const val HISTORY_SHOWN = 5
+
+/** Keuzes voor een herinnering van tevoren, in dagen. */
+private val DAYS_BEFORE = listOf(0, 1, 2, 7)
+
+private fun daysBeforeLabel(n: Int) = when (n) {
+    0 -> "Op de dag zelf"
+    1 -> "1 dag ervoor"
+    7 -> "1 week ervoor"
+    else -> "$n dagen ervoor"
+}
 
 /** Tijden per keer; ontbrekende tijden worden over de dag verdeeld tussen 08:00 en 21:00. */
 private fun slotList(stored: String, count: Int): List<Int> {

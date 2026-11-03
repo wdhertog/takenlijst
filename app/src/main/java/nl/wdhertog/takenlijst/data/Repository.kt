@@ -75,7 +75,7 @@ class Repository(
 
     suspend fun complete(taskId: Long, today: LocalDate = LocalDate.now()): Long? {
         val id = db.withTransaction {
-            val task = tasks.get(taskId) ?: return@withTransaction null
+            val task = tasks.get(taskId)?.copy(snoozedUntil = null) ?: return@withTransaction null
             val id = tasks.insertCompletion(Completion(taskId = task.id, doneOn = today, previousDue = task.nextDue, previousSlots = task.slotsDone))
             val due = task.nextDue
             // Te laat met een taak van meerdere keren per dag: de oude keren tellen niet meer, we beginnen vandaag.
@@ -111,7 +111,7 @@ class Repository(
         val before = db.withTransaction {
             val task = tasks.get(taskId) ?: return@withTransaction null
             // Op een andere dag begint een taak van meerdere keren per dag weer bij de eerste keer.
-            tasks.update(task.copy(nextDue = day, slotsDone = if (day == task.nextDue) task.slotsDone else 0))
+            tasks.update(task.copy(nextDue = day, slotsDone = if (day == task.nextDue) task.slotsDone else 0, snoozedUntil = null))
             task
         }
         onTasksChanged()
@@ -120,7 +120,13 @@ class Repository(
 
     /** Planning terugzetten zoals in [before], na [schedule]. */
     suspend fun restore(before: Task) {
-        tasks.get(before.id)?.let { tasks.update(it.copy(nextDue = before.nextDue, slotsDone = before.slotsDone)) }
+        tasks.get(before.id)?.let { tasks.update(it.copy(nextDue = before.nextDue, slotsDone = before.slotsDone, snoozedUntil = before.snoozedUntil)) }
+        onTasksChanged()
+    }
+
+    /** Herinnering voor de eerstvolgende keer verschuiven naar [until] (epoch-millis), of terug met null. */
+    suspend fun snooze(taskId: Long, until: Long?) {
+        tasks.get(taskId)?.let { tasks.update(it.copy(snoozedUntil = until)) }
         onTasksChanged()
     }
 

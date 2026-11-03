@@ -54,6 +54,8 @@ import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.data.Task
 import nl.wdhertog.takenlijst.data.TaskGroup
 import nl.wdhertog.takenlijst.ui.theme.App
+import java.time.Instant
+import java.time.ZoneId
 
 @Composable
 fun TodayScreen(
@@ -168,20 +170,27 @@ fun TodayScreen(
     }
 
     postpone?.let { t ->
-        ScheduleSheet(t, day, onDismiss = { postpone = null }, onPick = { picked ->
-            postpone = null
-            scope.scheduleWithUndo(vm, snackbar, t, picked, day)
-        })
+        ScheduleSheet(
+            t, day, onDismiss = { postpone = null },
+            onPick = { picked ->
+                postpone = null
+                scope.scheduleWithUndo(vm, snackbar, t, picked, day)
+            },
+            onLater = { postpone = null; vm.laterFor.value = t.id },
+        )
     }
 }
 
 private fun detail(t: Task) = buildString {
+    // Na "Later" staat het nieuwe tijdstip erbij in plaats van het gewone.
+    val later = t.snoozedUntil?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalTime() }
+        ?.let { it.hour * 60 + it.minute }
     if (t.timesPerDay > 1) {
         append("${t.slotsDone} van ${t.timesPerDay} gedaan")
-        t.nextSlotTime?.let { append(" · volgende ").append(minutesLabel(it)) }
+        (later ?: t.nextSlotTime)?.let { append(" · volgende ").append(minutesLabel(it)) }
     } else {
         append(t.repeat.describe())
-        t.reminderMinutes?.let { append(" · ").append(minutesLabel(it)) }
+        (later ?: t.reminderMinutes)?.let { append(" · ").append(minutesLabel(it)) }
     }
 }
 

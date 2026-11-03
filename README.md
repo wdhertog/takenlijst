@@ -32,7 +32,9 @@ wijziging.
   vanaf het moment dat je de taak echt deed in plaats van vanaf de geplande datum.
 - **Meerdere keren per dag**: bijvoorbeeld honden uitlaten om 07:30, 13:00 en 21:00; de taak staat op
   Vandaag tot alle keren gedaan zijn.
-- **Herinneringen**: een melding op de dag zelf (bij meerdere keren per dag: per keer), met een knop *Gedaan*.
+- **Herinneringen**: een melding op de dag zelf (bij meerdere keren per dag: per keer), of een paar dagen van
+  tevoren, zoals een dag voor de APK. Met de knop *Later* in de melding schuif je hem naar een later moment op
+  de dag, bijvoorbeeld vanavond; dat kan ook door lang op een taak te drukken.
 - **Boodschappen**: producten worden automatisch per afdeling gesorteerd (aanpasbaar door lang te drukken).
   *Winkelmodus* houdt het scherm aan, zet het rechtop en maakt de regels groter. *Klaar* haalt afgevinkte producten weg en
   vinkt de gekoppelde boodschappentaak af.

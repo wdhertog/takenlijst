@@ -149,10 +149,14 @@ fun TasksScreen(vm: AppViewModel, snackbar: SnackbarHostState, contentPadding: P
     }
 
     scheduling?.let { t ->
-        ScheduleSheet(t, day, onDismiss = { scheduling = null }, onPick = { picked ->
-            scheduling = null
-            scope.scheduleWithUndo(vm, snackbar, t, picked, day)
-        })
+        ScheduleSheet(
+            t, day, onDismiss = { scheduling = null },
+            onPick = { picked ->
+                scheduling = null
+                scope.scheduleWithUndo(vm, snackbar, t, picked, day)
+            },
+            onLater = { scheduling = null; vm.laterFor.value = t.id },
+        )
     }
 }
 

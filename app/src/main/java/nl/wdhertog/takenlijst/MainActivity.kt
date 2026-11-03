@@ -1,6 +1,7 @@
 package nl.wdhertog.takenlijst
 
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.net.Uri
@@ -31,10 +32,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -47,15 +51,20 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
+import nl.wdhertog.takenlijst.data.Task
+import nl.wdhertog.takenlijst.reminders.ReminderReceiver
+import nl.wdhertog.takenlijst.reminders.ReminderScheduler
 import nl.wdhertog.takenlijst.ui.AppViewModel
 import nl.wdhertog.takenlijst.ui.DrawableIcon
 import nl.wdhertog.takenlijst.ui.GroupEditScreen
 import nl.wdhertog.takenlijst.ui.GroupsScreen
 import nl.wdhertog.takenlijst.ui.HistoryScreen
 import nl.wdhertog.takenlijst.ui.IconPickerScreen
+import nl.wdhertog.takenlijst.ui.LaterSheet
 import nl.wdhertog.takenlijst.ui.LocalGroups
 import nl.wdhertog.takenlijst.ui.TaskIcon
 import nl.wdhertog.takenlijst.ui.MoreScreen
+import nl.wdhertog.takenlijst.ui.minutesLabel
 import nl.wdhertog.takenlijst.ui.ScanScreen
 import nl.wdhertog.takenlijst.ui.ShoppingScreen
 import nl.wdhertog.takenlijst.ui.TaskEditScreen
@@ -80,6 +89,19 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             TakenTheme(dark) { AppRoot(vm) }
+        }
+        if (savedInstanceState == null) handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    /** Knop "Later" in een melding: meteen de keuze voor een later moment tonen. */
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == ReminderScheduler.ACTION_LATER) {
+            vm.laterFor.value = intent.getLongExtra(ReminderReceiver.EXTRA_TASK, -1).takeIf { it > 0 }
         }
     }
 }
@@ -109,6 +131,10 @@ private fun AppRoot(vm: AppViewModel) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshDate() }
     val groups by vm.groups.collectAsState()
+
+    val laterFor by vm.laterFor.collectAsState()
+    var laterTask by remember { mutableStateOf<Task?>(null) }
+    LaunchedEffect(laterFor) { laterTask = laterFor?.let { vm.task(it) } }
 
     // Winkelmodus: scherm blijft aan en staat in portret, tot je de modus weer uitzet.
     val shopMode by vm.shopMode.collectAsState()
@@ -227,6 +253,18 @@ private fun AppRoot(vm: AppViewModel) {
                 ScanScreen(vm, voice = it.arguments?.getString("soort") == "spraak", onDone = { nav.popBackStack() })
             }
         }
+    }
+
+    laterTask?.let { t ->
+        LaterSheet(
+            t,
+            onPick = { at ->
+                vm.laterFor.value = null
+                vm.snooze(t.id, at)
+                scope.launch { snackbar.showSnackbar("Herinnering voor ${t.title} om ${minutesLabel(at.hour * 60 + at.minute)}") }
+            },
+            onDismiss = { vm.laterFor.value = null },
+        )
     }
     }
 }

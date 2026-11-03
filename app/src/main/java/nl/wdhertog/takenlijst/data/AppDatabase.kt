@@ -117,7 +117,7 @@ interface ProductDao {
     suspend fun deleteAll()
 }
 
-@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class, Product::class], version = 7)
+@Database(entities = [Task::class, Completion::class, ShoppingItem::class, TaskGroup::class, Product::class], version = 8)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tasks(): TaskDao
@@ -128,7 +128,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "takenlijst.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = insertDefaultGroups(db)
                 })
@@ -185,6 +185,14 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN finishedOn INTEGER")
+            }
+        }
+
+        /** Versie 8: herinnering dagen van tevoren en later op de dag. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN reminderDaysBefore INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN snoozedUntil INTEGER")
             }
         }
 
