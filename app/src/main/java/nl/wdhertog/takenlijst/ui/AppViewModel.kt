@@ -27,10 +27,13 @@ import nl.wdhertog.takenlijst.domain.ListParser
 import nl.wdhertog.takenlijst.domain.ParsedItem
 import nl.wdhertog.takenlijst.domain.ProductNames
 import nl.wdhertog.takenlijst.products.OpenFoodFacts
+import nl.wdhertog.takenlijst.reminders.ReminderScheduler
 import nl.wdhertog.takenlijst.ui.theme.ThemeMode
 import nl.wdhertog.takenlijst.voice.SAMPLE_RATE
 import nl.wdhertog.takenlijst.voice.VoiceRecorder
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 data class TodayState(
     val loaded: Boolean = false,
@@ -203,6 +206,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun undo(completionId: Long) = viewModelScope.launch { repo.undo(completionId) }
     suspend fun schedule(taskId: Long, day: LocalDate?): Task? = repo.schedule(taskId, day)
     fun restore(before: Task) = viewModelScope.launch { repo.restore(before) }
+
+    /** Taak waarvoor de keuze "Later herinneren" open staat, bijv. na de knop Later in een melding. */
+    val laterFor = MutableStateFlow<Long?>(null)
+
+    /** Herinnering verschuiven naar [until] en de huidige melding weghalen. */
+    fun snooze(taskId: Long, until: LocalDateTime) = viewModelScope.launch {
+        repo.snooze(taskId, until.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+        ReminderScheduler.dismiss(getApplication(), taskId)
+    }
     suspend fun task(id: Long) = repo.task(id)
     fun doneDates(id: Long) = repo.doneDates(id)
     fun reopen(taskId: Long) = viewModelScope.launch { repo.reopen(taskId) }

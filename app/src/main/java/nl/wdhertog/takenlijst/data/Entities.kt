@@ -10,6 +10,7 @@ import nl.wdhertog.takenlijst.domain.Aisle
 import nl.wdhertog.takenlijst.domain.Repeat
 import nl.wdhertog.takenlijst.domain.RepeatUnit
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Een groep taken (standaard Huis, Tuin en Werk), door de gebruiker in te stellen tot [MAX] stuks.
@@ -73,6 +74,10 @@ data class Task(
     @ColumnInfo(defaultValue = "0") val monthWeek: Int = 0,
     /** Dag waarop een eenmalige taak afgevinkt is; dan staat hij niet meer in de lijsten. */
     val finishedOn: LocalDate? = null,
+    /** Herinnering zoveel dagen vóór de geplande dag (APK: 1 dag ervoor); alleen bij één keer per dag. */
+    @ColumnInfo(defaultValue = "0") val reminderDaysBefore: Int = 0,
+    /** Herinnering voor de eerstvolgende keer verschoven naar dit moment (epoch-millis), via "Later". */
+    val snoozedUntil: Long? = null,
 ) {
     val repeat get() = Repeat(repeatUnit, repeatEvery, weekdays, monthWeek)
 
@@ -87,6 +92,19 @@ data class Task(
 
     /** Tijdstip van de eerstvolgende keer die nog moet gebeuren, als dat bekend is. */
     val nextSlotTime: Int? get() = if (timesPerDay > 1) times.getOrNull(slotsDone) else reminderMinutes
+
+    /**
+     * Herinneringsmomenten (epoch-millis); bij meerdere keren per dag één per keer die nog moet.
+     * "Later" ([snoozedUntil]) verschuift alleen de eerstvolgende, de keren daarna blijven staan.
+     */
+    fun reminderTimes(zone: ZoneId = ZoneId.systemDefault()): List<Long> {
+        val due = nextDue ?: return emptyList()
+        val minutes = reminderMinutes ?: return emptyList()
+        fun at(day: LocalDate, m: Int) = day.atStartOfDay().plusMinutes(m.toLong()).atZone(zone).toInstant().toEpochMilli()
+        val planned = if (timesPerDay > 1) times.drop(slotsDone).map { at(due, it) }
+        else listOf(at(due.minusDays(reminderDaysBefore.toLong()), minutes))
+        return snoozedUntil?.let { listOf(it) + planned.drop(1) } ?: planned
+    }
 }
 
 @Entity(

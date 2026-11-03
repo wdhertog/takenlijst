@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,8 +19,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +38,8 @@ import nl.wdhertog.takenlijst.data.Task
 import nl.wdhertog.takenlijst.ui.theme.App
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 /**
@@ -43,7 +48,7 @@ import java.time.temporal.TemporalAdjusters
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleSheet(task: Task, today: LocalDate, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit) {
+fun ScheduleSheet(task: Task, today: LocalDate, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit, onLater: () -> Unit) {
     var pickDate by remember { mutableStateOf(false) }
     val current = task.nextDue
     val postpone = current != null && !current.isAfter(today)
@@ -70,6 +75,7 @@ fun ScheduleSheet(task: Task, today: LocalDate, onPick: (LocalDate?) -> Unit, on
                 task.title, style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
             )
+            if (task.reminderMinutes != null && current != null) SheetRow(R.drawable.ic_bell, "Later herinneren…", onLater)
             options.forEach { (label, day) -> SheetRow(R.drawable.ic_calendar, label) { onPick(day) } }
             SheetRow(R.drawable.ic_calendar, "Kies een dag…") { pickDate = true }
             if (task.repeat.isOnDemand && current != null) SheetRow(R.drawable.ic_clock, "Niet meer inplannen") { onPick(null) }
@@ -96,6 +102,60 @@ fun ScheduleSheet(task: Task, today: LocalDate, onPick: (LocalDate?) -> Unit, on
         ) { DatePicker(state) }
     }
 }
+
+/**
+ * Herinnering voor [task] naar een later moment vandaag schuiven, bijv. het medicijn voor de honden
+ * pas 's avonds.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LaterSheet(task: Task, onPick: (LocalDateTime) -> Unit, onDismiss: () -> Unit) {
+    var pickTime by remember { mutableStateOf(false) }
+    val now = remember { LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES) }
+    val evening = now.toLocalDate().atTime(EVENING, 0)
+    val options = buildList {
+        add(now.plusHours(1))
+        add(now.plusHours(2))
+        if (evening.isAfter(now.plusHours(2))) add(evening)
+    }.filter { it.toLocalDate() == now.toLocalDate() }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("Later herinneren", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(
+                task.title, style = MaterialTheme.typography.bodyMedium, color = App.colors.muted,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+            )
+            options.forEach { at ->
+                val label = when (at) {
+                    evening -> "Vanavond"
+                    now.plusHours(1) -> "Over een uur"
+                    else -> "Over 2 uur"
+                }
+                SheetRow(R.drawable.ic_clock, "$label · ${minutesLabel(at.hour * 60 + at.minute)}") { onPick(at) }
+            }
+            SheetRow(R.drawable.ic_clock, "Kies een tijd…") { pickTime = true }
+        }
+    }
+
+    if (pickTime) {
+        val start = if (evening.isAfter(now)) evening else now.plusMinutes(30)
+        val state = rememberTimePickerState(start.hour, start.minute, is24Hour = true)
+        val chosen = now.toLocalDate().atTime(state.hour, state.minute)
+        AlertDialog(
+            onDismissRequest = { pickTime = false },
+            title = { Text("Vandaag om") },
+            confirmButton = {
+                TextButton(onClick = { pickTime = false; onPick(chosen) }, enabled = chosen.isAfter(now)) { Text("Kies") }
+            },
+            dismissButton = { TextButton(onClick = { pickTime = false }) { Text("Annuleren") } },
+            text = { TimePicker(state) },
+        )
+    }
+}
+
+/** Tijdstip voor "Vanavond" in [LaterSheet]. */
+private const val EVENING = 19
 
 @Composable
 private fun SheetRow(icon: Int, label: String, onClick: () -> Unit) {

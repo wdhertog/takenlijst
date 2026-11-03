@@ -22,8 +22,7 @@ import nl.wdhertog.takenlijst.R
 import nl.wdhertog.takenlijst.TakenApp
 import nl.wdhertog.takenlijst.data.Task
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * Er staat steeds één wekker: op het eerstvolgende herinneringsmoment. Als hij afgaat, krijgen alle
@@ -47,15 +46,10 @@ object ReminderScheduler {
         scope.launch { reschedule(app) }
     }
 
-    /** Herinneringsmomenten van een taak; bij meerdere keren per dag één per keer die nog moet. */
-    private fun triggerTimes(task: Task): List<Long> {
-        val due = task.nextDue ?: return emptyList()
-        task.reminderMinutes ?: return emptyList()
-        val minutes = if (task.timesPerDay > 1) task.times.drop(task.slotsDone) else listOfNotNull(task.reminderMinutes)
-        return minutes.map { due.atStartOfDay().plusMinutes(it.toLong()).millis() }
-    }
+    /** Opent de app met de keuze voor een later moment; vanuit de knop "Later" in de melding. */
+    const val ACTION_LATER = "nl.wdhertog.takenlijst.LATER"
 
-    private fun LocalDateTime.millis() = atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    fun dismiss(context: Context, taskId: Long) = NotificationManagerCompat.from(context).cancel(taskId.toInt())
 
     suspend fun reschedule(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -63,7 +57,7 @@ object ReminderScheduler {
         if (!prefs.contains(LAST_CHECK)) prefs.edit().putLong(LAST_CHECK, now).apply()
 
         val tasks = TakenApp.from(context).repository.let { repo -> repo.allTasksOnce() }
-        val next = tasks.flatMap(::triggerTimes).filter { it > now }.minOrNull()
+        val next = tasks.flatMap { it.reminderTimes() }.filter { it > now }.minOrNull()
 
         val alarm = context.getSystemService(AlarmManager::class.java)
         val pending = PendingIntent.getBroadcast(
@@ -82,7 +76,7 @@ object ReminderScheduler {
         val repo = TakenApp.from(context).repository
         val tasks = repo.allTasksOnce()
         val groups = repo.groupsOnce().associateBy { it.id }
-        tasks.filter { t -> triggerTimes(t).any { it in (since + 1)..now } }
+        tasks.filter { t -> t.reminderTimes().any { it in (since + 1)..now } }
             .forEach { notify(context, it, groups[it.groupId]?.name ?: "") }
         prefs.edit().putLong(LAST_CHECK, now).apply()
         reschedule(context)
@@ -107,15 +101,27 @@ object ReminderScheduler {
             Intent(context, ReminderReceiver::class.java).setAction(ReminderReceiver.ACTION_POSTPONE).putExtra(ReminderReceiver.EXTRA_TASK, task.id),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val later = PendingIntent.getActivity(
+            context, task.id.toInt(),
+            Intent(context, MainActivity::class.java).setAction(ACTION_LATER).putExtra(ReminderReceiver.EXTRA_TASK, task.id)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        // Bij een herinnering van tevoren staat erbij wanneer het is, en heeft "Morgen" geen zin.
+        val today = LocalDate.now()
+        val ahead = task.nextDue?.takeIf { it.isAfter(today) }?.let {
+            if (it == today.plusDays(1)) "Morgen" else "Over ${ChronoUnit.DAYS.between(today, it)} dagen"
+        }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFF2F6B4F.toInt())
             .setContentTitle(if (task.timesPerDay > 1) "${task.title} (${task.slotsDone + 1} van ${task.timesPerDay})" else task.title)
-            .setContentText(listOf(groupName, task.describeRepeat()).filter { it.isNotEmpty() }.joinToString(" · "))
+            .setContentText(listOfNotNull(ahead, groupName, task.describeRepeat()).filter { it.isNotEmpty() }.joinToString(" · "))
             .setContentIntent(open)
             .setAutoCancel(true)
             .addAction(0, "Gedaan", done)
-            .addAction(0, "Morgen", tomorrow)
+            .addAction(0, "Later", later)
+            .apply { if (ahead == null) addAction(0, "Morgen", tomorrow) }
             .build()
         NotificationManagerCompat.from(context).notify(task.id.toInt(), notification)
     }
