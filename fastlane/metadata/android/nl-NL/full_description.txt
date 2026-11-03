@@ -8,7 +8,7 @@
 <li>Taken uitstellen naar morgen, volgende week of een zelfgekozen dag, en klusjes op afroep op elke dag inplannen</li>
 <li>Eenmalige klusjes die na het afvinken van je lijst verdwijnen, en een overzicht van alles wat je gedaan hebt</li>
 <li>Meerdere keren per dag, zoals de honden uitlaten om 7:30, 13:00 en 21:00, met een cirkel die per keer voller wordt</li>
-<li>Herinneringen met de knoppen Gedaan en Morgen in de melding</li>
+<li>Herinneringen op de dag zelf of een paar dagen van tevoren, met de knoppen Gedaan, Later en Morgen in de melding</li>
 <li>Tot vijf eigen groepen (bijv. Huis, Tuin, Werk) met naam, kleur en icoon</li>
 <li>Bijna honderd iconen om uit te kiezen, met zoekfunctie</li>
 </ul>

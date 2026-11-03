@@ -10,7 +10,7 @@
 <li>Postpone tasks to tomorrow, next week or any day you pick, and schedule on-demand jobs for any day</li>
 <li>One-off jobs that leave your list once done, and an overview of everything you have done</li>
 <li>Several times a day, like walking the dogs at 7:30, 13:00 and 21:00</li>
-<li>Reminders with Done and Tomorrow buttons in the notification</li>
+<li>Reminders on the day or a few days ahead, with Done, Later and Tomorrow buttons in the notification</li>
 <li>Up to five groups of your own (e.g. Home, Garden, Work) with name, colour and icon</li>
 <li>Almost a hundred icons to choose from, with search</li>
 </ul>
